@@ -11,7 +11,7 @@ import math
 from app import app, server, sf_manager
 from apps import opportunities, cases, leads
 
-import dash_table
+#import dash_table
 import plotly.graph_objs as go
 import numpy as np
 import pandas as pd
