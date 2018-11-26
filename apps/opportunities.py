@@ -21,7 +21,7 @@ from money import Money
 import psycopg2
 from sqlalchemy import create_engine
 
-from app import app, indicator_one, indicator_four, millify, df_to_table, to_dollar
+from app import app, indicator_one, indicator_four, millify, df_to_table
 mapbox_access_token = 'pk.eyJ1IjoibmlhbGxjaGFuZ2V4IiwiYSI6ImNqbHFyc2FjaTJjYXUza3Biem9tamw2enEifQ.iy0uUg8EKAYaFbZuN1iodw'
 
 
