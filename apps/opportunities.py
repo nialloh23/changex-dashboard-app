@@ -478,8 +478,7 @@ def fund_paid_out_callback(fund_id):
     filtered_list_of_accounts=filtered_accounts['id'].tolist()
     filtered_fund_paid_accounts=accounts[accounts['parent_account_id'].isin(filtered_list_of_accounts)]
     total_paid_out=filtered_fund_paid_accounts['balance_cents'].sum()/100
-    total_paid_out_dollar= to_dollar(total_paid_out)
-    return total_paid_out_dollar
+    return total_paid_out
 
 
 
@@ -577,8 +576,7 @@ def fund_allocated_callback(fund_namee):
     filtered_accounts = account_options[account_options['parent_account_id']==fund_namee]
     allocated_accounts=filtered_accounts[(filtered_accounts['state']=='allocated') | (filtered_accounts['state']=='approved')]
     total_allocated=allocated_accounts['balance_cents'].sum()/100
-    total_acllocated_dollar=to_dollar(total_allocated)
-    return total_acllocated_dollar
+    return total_allocated
 
 
 
