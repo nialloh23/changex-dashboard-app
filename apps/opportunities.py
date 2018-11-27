@@ -563,10 +563,15 @@ def pack_wait_time_callback(fund_namee):
 # updates Second Row Sevent Indicator (Fund Left )
 
 @app.callback(
-    Output("fund_left_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("fund_left_id", "children"), [Input("fund_name_dropdown", "value"), Input("fund_slug_dropdown", "value")]
 )
-def fund_left_callback(fund_namee):
-    fund_row=user_order_options.loc[user_order_options['slug'] == fund_namee]
+def fund_left_callback(fund_name_slug, fund_account_number):
+    filtered_accounts = account_options[account_options['parent_account_id']==fund_account_number]
+    filtered_list_of_accounts=filtered_accounts['id'].tolist()
+    filtered_fund_paid_accounts=accounts[accounts['parent_account_id'].isin(filtered_list_of_accounts)]
+    total_paid_out=filtered_fund_paid_accounts['balance_cents'].sum()/100
+
+    fund_row=user_order_options.loc[user_order_options['slug'] == fund_name_slug]
     row_index=fund_row.index
     fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
     fund_remaining=fund_budget-total_paid_out
