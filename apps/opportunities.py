@@ -1,125 +1,112 @@
 # -*- coding: utf-8 -*-
-import math
-import json
-from pandas.io.json import json_normalize #package for flattening json in pandas df
-from datetime import date
-from datetime import datetime
-
-import dateutil.parser
-
-import pandas as pd
-import numpy as np
 import flask
 import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
-#import dash_table
-
 import plotly.plotly as py
 from plotly import graph_objs as go
 import plotly.graph_objs as go
-import psycopg2
-from sqlalchemy import create_engine
 
+from datetime import date
+from datetime import datetime
+import dateutil.parser
+
+import pandas as pd
+import json
+import numpy as np
+import math
 from money import Money
 
+import psycopg2
+from sqlalchemy import create_engine
 
 from app import app, indicator_one, indicator_four, millify, df_to_table, sf_manager
 mapbox_access_token = 'pk.eyJ1IjoibmlhbGxjaGFuZ2V4IiwiYSI6ImNqbHFyc2FjaTJjYXUza3Biem9tamw2enEifQ.iy0uUg8EKAYaFbZuN1iodw'
 
 
 
-# ====== Connection ======
-# Connecting to PostgreSQL by providing a sqlachemy engine
 
+
+##=======1.0 CONNECT TO DATABASES===========
+
+# Connecting to ChangeX Production PostgreSQL by providing a sqlachemy engine
 engine = create_engine('postgresql://u84avvruuk8j29:paarpd5h2ndt2pf2iiaunfjcglj@ec2-52-44-72-54.compute-1.amazonaws.com/dbjqf1hr7j51et')
-
-# ====== Connection ======
 # Connecting to Facebook Ads PostgreSQL by providing a sqlachemy engine
-
 facebook_engine = create_engine('postgresql://cwowexuoevajcl:4e061d2010ae798e5694efa386c7480754b708f8a3da97fd5fe659579c125f02@ec2-54-204-2-26.compute-1.amazonaws.com/dfk5g884idgiqm')
 
 
 
-##=======1.0 IMPORT DATA TABLES===========
 
-user_orders = pd.read_sql('SELECT * FROM user_orders', engine)
-applications = pd.read_sql('SELECT * FROM solution_applications', engine)
-users = pd.read_sql('SELECT * FROM users', engine)
-onboarding_steps = pd.read_sql('SELECT * FROM onboarding_steps', engine)
-completed_onboarding_steps = pd.read_sql('SELECT * FROM completed_onboarding_steps', engine)
-locations = pd.read_sql('SELECT * FROM locations', engine)
-user_location_roles = pd.read_sql('SELECT * FROM user_location_roles', engine)
-location_roles = pd.read_sql('SELECT * FROM location_roles', engine)
-authentications = pd.read_sql('SELECT * FROM authentications', engine)
-solutions = pd.read_sql('SELECT * FROM solutions', engine)
-accounts = pd.read_sql('SELECT * FROM accounts', engine)
-account_entries = pd.read_sql('SELECT * FROM account_entries', engine)
-location_invites = pd.read_sql('SELECT * FROM location_invites', engine)
 
+##=======2.0 IMPORT DATA TABLES===========
+
+user_orders = pd.read_sql('SELECT * FROM user_orders', engine)                  #12 Rows
+applications = pd.read_sql('SELECT * FROM solution_applications', engine)       #11860 Rows
+users = pd.read_sql('SELECT * FROM users', engine)                              #22000 Rows
+onboarding_steps = pd.read_sql('SELECT * FROM onboarding_steps', engine)        #102 Rows
+completed_onboarding_steps = pd.read_sql('SELECT * FROM completed_onboarding_steps', engine)    #1785 Rows
+locations = pd.read_sql('SELECT * FROM locations', engine)                      #15,506 Rows
+user_location_roles = pd.read_sql('SELECT * FROM user_location_roles', engine)  #18,000 Rows
+location_roles = pd.read_sql('SELECT * FROM location_roles', engine)            #191 Rows
+authentications = pd.read_sql('SELECT * FROM authentications', engine)          #13,375 Rows
+solutions = pd.read_sql('SELECT * FROM solutions', engine)                      #70 Rows
+accounts = pd.read_sql('SELECT * FROM accounts', engine)                        #102 Rows
+account_entries = pd.read_sql('SELECT * FROM account_entries', engine)          #355 Rows
+location_invites = pd.read_sql('SELECT * FROM location_invites', engine)        #2856 Rows
 #Import Facebook Ad Accounts
-ad_accounts = pd.read_sql('SELECT * FROM facebook_ads.ad_accounts', facebook_engine)
-ad_campaigns = pd.read_sql('SELECT * FROM facebook_ads.campaigns', facebook_engine)
-ad_sets = pd.read_sql('SELECT * FROM facebook_ads.ad_sets', facebook_engine)
-ads = pd.read_sql('SELECT * FROM facebook_ads.ads', facebook_engine)
-insights = pd.read_sql('SELECT * FROM facebook_ads.insights', facebook_engine)
+ad_accounts = pd.read_sql('SELECT * FROM facebook_ads.ad_accounts', facebook_engine)    #1 Row
+ad_campaigns = pd.read_sql('SELECT * FROM facebook_ads.campaigns', facebook_engine)     #313 Rows
+ad_sets = pd.read_sql('SELECT * FROM facebook_ads.ad_sets', facebook_engine)            #678 Rows
+ads = pd.read_sql('SELECT * FROM facebook_ads.ads', facebook_engine)                    #1,590 Rows
+insights = pd.read_sql('SELECT * FROM facebook_ads.insights', facebook_engine)          #14,323 Rows
 
 
 
 
 
-##=======2.0 MERGING DATA TABLES===========
+##=======3.0 MERGING DATA TABLES===========
 
-#Step 1
-#Split accounts Options Column into Seperate Series.Finally use pd.concat to join back the other columns:
+#Step 1:    Split accounts Options Column into Seperate Series.Finally use pd.concat to join back the other columns:
 split_options = accounts['options'].apply(pd.Series)
 account_options=pd.concat([accounts.drop(['options'], axis=1), split_options], axis=1)
 
-#Step 2
+#Step 2    Merge accounts with locations data (local group)
 account_location=account_options.merge(locations, left_on='location_id', right_on='id')
 
-#Step3
-#Combine user_location_roles table with location_roles (Chamption and joiner)
+#Step3      Combine user_location_roles table with location_roles (Chamption and joiner)
 user_location_roles_merged=user_location_roles.merge(location_roles, left_on='location_role_id', right_on='id')
 
-#Step4
+#Step4      Merge account_location data with user location roles (roles & users)
 user_roles_location_account=account_location.merge(user_location_roles_merged, left_on='location_id', right_on='location_id')
 
-#Step5
+#Step5      Merge starter applications with users who created them
 applications_user=applications.merge(users, left_on='user_id', right_on='id')
 
-#Step6
+#Step6      Merge starter applications and user data with the locations that they created
 applications_user_locations=applications_user.merge(locations, left_on='solution_location_id', right_on='id')
 
-#Step7
+#Step7      Now it's time to combine the two. Merge accounts_location data with application_users_location data
 account_location_application_user=account_location.merge(applications_user_locations, left_on='location_id', right_on='solution_location_id')
 
-#Step8
-#Split Authentications Info into Seperate Series
+#Step8      Time to add some extra data from the Authentications Info into Seperate Series
 split_authentications_info = authentications['info'].map(json.loads).apply(pd.Series)
 authentications_info=pd.concat([authentications.drop(['info'], axis=1), split_authentications_info], axis=1)
 authentications_info_last=authentications_info.drop_duplicates(['user_id'], keep='last')
 
-#Step9
+#Step9      Now we add the authentications info onto our new master table (account_location_application_user)
 applicant_data=account_location_application_user.merge(authentications_info_last, left_on='user_id', right_on='user_id', how='left')
 
-#Step10
-#Split Screening Questions into Seperate Columns
+#Step10     Split Screening Questions into Seperate Columns and add concatenate onto applicant_data table
 split_screening_info = applicant_data['options'].apply(pd.Series)
 applicant_data=pd.concat([applicant_data.drop(['options'], axis=1), split_screening_info], axis=1)
 
-#Step11
-#Narrow applicant data down to just that which is important for analysis (feature shortlist)
+#Step11     Narrow applicant data down to just that which is important for analysis (feature shortlist) -> This table becomes mainstay for most analytics carried out
 applicant_features=applicant_data[['parent_account_id','state','balance_cents','name_x','created_at_y_x','latitude_x','longitude_x','visibility_x','solution_id_x_y','stage','utm_source','utm_medium','active_tracking_count','sign_in_count','avatar_file_name','first_name_y','last_name_y','can_invite','intentions','previous_changemaker','location_id','id_x_y','solution_location_id',
 'id_y_y','id_x','receive_starter_pack','starter_pack_sent_at','received_starter_call_at']]
 
-
-
-#Step 12 (Aside: make user_orders into useable format)
-#Split Options Column into Seperate Series
+#Step 12    Make user_orders into useable format. Split Options Column into Seperate Series and use pd.concat to join back the other columns:
 split_options = user_orders['options'].apply(pd.Series)
-#Finally use pd.concat to join back the other columns:
 user_order_options=pd.concat([user_orders.drop(['options'], axis=1), split_options], axis=1)
 
 #Step 13 Merge Campaigns with Ad Sets (Facebook Ads
@@ -135,6 +122,7 @@ campaign_insights=campaign_ad_sets_ads.merge(insights, left_on='id', right_on='a
 
 
 
+
 ##=======3.0 ANALYTICS===========
 
 #1.0 Fund Budget
@@ -143,12 +131,12 @@ row_index=fund_row.index
 fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
 
 #2.0 Fund name
-#fund_name=user_order_options.loc[row_index]['description'].iloc[0]
+fund_name=user_order_options.loc[row_index]['description'].iloc[0]
 
 #3.0 Number Days Elapsed
-#start_date=user_order_options.loc[row_index]['start_date'].iloc[0].iloc[0]
-#current_date=date.today()
-#time_elapsed= current_date-start_date
+start_date=user_order_options.loc[row_index]['start_date'].iloc[0].iloc[0]
+current_date=date.today()
+time_elapsed= current_date-start_date
 
 
 #4.0 Total Paid Out
@@ -162,8 +150,6 @@ fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
 filtered_fund_accounts=accounts.loc[accounts['parent_account_id'] == 10.0]
 list_of_accounts=filtered_fund_accounts['id'].tolist()
 filtered_fund_paid_accounts=accounts[accounts['parent_account_id'].isin(list_of_accounts)]
-
-
 
 
 #7.0 Number Paid accounts
@@ -573,10 +559,6 @@ y = k + r*math.sin(theta)
 path_new = 'M 0.235 0.5 L ' + str(x) + ' ' + str(y) + ' L 0.245 0.5 Z'
 
 
-
-
-
-
 layout = {
     'autosize': True,
     #'width': 208,
@@ -634,278 +616,12 @@ wheel_fig = {"data": [base_chart, meter_chart],"layout": layout}
 
 
 
-# returns modal (hidden by default)
-def modal():
-    return html.Div(
-        html.Div(
-            [
-                html.Div(
-                    [
-
-                        # modal header
-                        html.Div(
-                            [
-                                html.Span(
-                                    "New Opportunity",
-                                    style={
-                                        "color": "#506784",
-                                        "fontWeight": "bold",
-                                        "fontSize": "20",
-                                    },
-                                ),
-                                html.Span(
-                                    "×",
-                                    id="opportunities_modal_close",
-                                    n_clicks=0,
-                                    style={
-                                        "float": "right",
-                                        "cursor": "pointer",
-                                        "marginTop": "0",
-                                        "marginBottom": "17",
-                                    },
-                                ),
-                            ],
-                            className="row",
-                            style={"borderBottom": "1px solid #C8D4E3"},
-                        ),
 
 
-                        # modal form
-                        html.Div(
-                            [
-
-                                # left div
-                                html.Div(
-                                    [
-                                        html.P(
-                                            [
-                                                "Name"
-                                            ],
-                                            style={
-                                                "float": "left",
-                                                "marginTop": "4",
-                                                "marginBottom": "2",
-                                            },
-                                            className="row",
-                                        ),
-                                        dcc.Input(
-                                            id="new_opportunity_name",
-                                            placeholder="Name of the opportunity",
-                                            type="text",
-                                            value="",
-                                            style={"width": "100%"},
-                                        ),
-
-                                        html.P(
-                                            [
-                                                "StageName"
-                                            ],
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        dcc.Dropdown(
-                                            id="new_opportunity_stage",
-                                            options=[
-                                                {
-                                                    "label": "Prospecting",
-                                                    "value": "Prospecting",
-                                                },
-                                                {
-                                                    "label": "Qualification",
-                                                    "value": "Qualification",
-                                                },
-                                                {
-                                                    "label": "Needs Analysis",
-                                                    "value": "Needs Analysis",
-                                                },
-                                                {
-                                                    "label": "Value Proposition",
-                                                    "value": "Value Proposition",
-                                                },
-                                                {
-                                                    "label": "Id. Decision Makers",
-                                                    "value": "Closed",
-                                                },
-                                                {
-                                                    "label": "Perception Analysis",
-                                                    "value": "Perception Analysis",
-                                                },
-                                                {
-                                                    "label": "Proposal/Price Quote",
-                                                    "value": "Proposal/Price Quote",
-                                                },
-                                                {
-                                                    "label": "Negotiation/Review",
-                                                    "value": "Negotiation/Review",
-                                                },
-                                                {
-                                                    "label": "Closed/Won",
-                                                    "value": "Closed Won",
-                                                },
-                                                {
-                                                    "label": "Closed/Lost",
-                                                    "value": "Closed Lost",
-                                                },
-                                            ],
-                                            clearable=False,
-                                            value="Prospecting",
-                                        ),
-
-                                        html.P(
-                                            "Source",
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        dcc.Dropdown(
-                                            id="new_opportunity_source",
-                                            options=[
-                                                {"label": "Web", "value": "Web"},
-                                                {
-                                                    "label": "Phone Inquiry",
-                                                    "value": "Phone Inquiry",
-                                                },
-                                                {
-                                                    "label": "Partner Referral",
-                                                    "value": "Partner Referral",
-                                                },
-                                                {
-                                                    "label": "Purchased List",
-                                                    "value": "Purchased List",
-                                                },
-                                                {"label": "Other", "value": "Other"},
-                                            ],
-                                            value="Web",
-                                        ),
-
-                                        html.P(
-                                            [
-                                                "Close Date"
-                                            ],
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        html.Div(
-                                            dcc.DatePickerSingle(
-                                                id="new_opportunity_date",
-                                                min_date_allowed=date.today(),
-                                                # max_date_allowed=dt(2017, 9, 19),
-                                                initial_visible_month=date.today(),
-                                                date=date.today(),
-                                            ),
-                                            style={"textAlign": "left"},
-                                        ),
-
-                                    ],
-                                    className="six columns",
-                                    style={"paddingRight": "15"},
-                                ),
 
 
-                                # right div
-                                html.Div(
-                                    [
-                                        html.P(
-                                            "Type",
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        dcc.Dropdown(
-                                            id="new_opportunity_type",
-                                            options=[
-                                                {
-                                                    "label": "Existing Customer - Replacement",
-                                                    "value": "Existing Customer - Replacement",
-                                                },
-                                                {
-                                                    "label": "New Customer",
-                                                    "value": "New Customer",
-                                                },
-                                                {
-                                                    "label": "Existing Customer - Upgrade",
-                                                    "value": "Existing Customer - Upgrade",
-                                                },
-                                                {
-                                                    "label": "Existing Customer - Downgrade",
-                                                    "value": "Existing Customer - Downgrade",
-                                                },
-                                            ],
-                                            value="New Customer",
-                                        ),
 
-                                        html.P(
-                                            "Amount",
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        dcc.Input(
-                                            id="new_opportunity_amount",
-                                            placeholder="0",
-                                            type="number",
-                                            value="",
-                                            style={"width": "100%"},
-                                        ),
-
-                                        html.P(
-                                            "Probability",
-                                            style={
-                                                "textAlign": "left",
-                                                "marginBottom": "2",
-                                                "marginTop": "4",
-                                            },
-                                        ),
-                                        dcc.Input(
-                                            id="new_opportunity_probability",
-                                            placeholder="0",
-                                            type="number",
-                                            max=100,
-                                            step=1,
-                                            value="",
-                                            style={"width": "100%"},
-                                        ),
-
-                                    ],
-                                    className="six columns",
-                                    style={"paddingLeft": "15"},
-                                ),
-                            ],
-                            className="row",
-                            style={"paddingTop": "2%"},
-                        ),
-
-
-                        # submit button
-                        html.Span(
-                            "Submit",
-                            id="submit_new_opportunity",
-                            n_clicks=0,
-                            className="button button--primary add"
-                        ),
-                    ],
-                    className="modal-content",
-                    style={"textAlign": "center"},
-                )
-            ],
-            className="modal",
-        ),
-        id="opportunities_modal",
-        style={"display": "none"},
-    )
-
+##=======4.0 HTML LAYOUT===========
 
 layout = [
 
@@ -960,17 +676,7 @@ layout = [
                 className="two columns",
             ),
 
-            #add button
-            html.Div(
-                html.Span(
-                    "Add new",
-                    id="new_opportunity",
-                    n_clicks=0,
-                    className="button button--primary add"
-                ),
-                className="two columns",
-                style={"float": "right"},
-            ),
+
         ],
         className="row",
         style={"marginBottom": "10"},
@@ -1224,7 +930,7 @@ layout = [
             ),
 
 
-            modal(),
+
         ],
         className="row",
         style={"marginTop": "5px", "max height": "200px"},
@@ -1266,7 +972,7 @@ layout = [
             ),
 
 
-            modal(),
+
         ],
         className="row",
         style={"marginTop": "5px", "max height": "200px"},
@@ -1275,8 +981,16 @@ layout = [
 
 
 
-# updates First Row left indicator
 
+
+
+
+
+##=======5.0 CALLBACK FUNCTIONS===========
+
+
+
+# updates First Row left indicator
 @app.callback(
     Output("budget_remaining_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1302,6 +1016,7 @@ def budget_remaining_callback(fund_namee):
         return budget_remaining_eur
 
 
+
 # updates first row middle indicator value based on df updates
 @app.callback(
     Output("delivery_cost_id", "children"),
@@ -1325,6 +1040,7 @@ def delivery_cost_indicator_callback(fund_slug_value):
         return total_delivery_cost_eur
 
 
+
 # updates first row right indicator value based on df updates
 @app.callback(
     Output("number_active_id", "children"),
@@ -1338,8 +1054,9 @@ def total_active_callback(fund_slug_value):
     return number_paid_accounts
 
 
-# updates Second Row First Indicator (Total Ad Spend)
 
+
+# updates Second Row First Indicator (Total Ad Spend)
 @app.callback(
     Output("total_ad_spend_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1352,8 +1069,9 @@ def total_ad_spend_callback(fund_namee):
     return total_ad_spend_eur_amount
 
 
-# updates Second Row Second Indicator (Cost Per Approved Starter)
 
+
+# updates Second Row Second Indicator (Cost Per Approved Starter)
 @app.callback(
     Output("ad_cost_per_approved_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1377,8 +1095,8 @@ def ad_cost_approved_callback(fund_namee):
     return cost_per_approved_starter_eur_amount
 
 
-# updates Second Row Third Indicator (Cost Per Active Starter)
 
+# updates Second Row Third Indicator (Cost Per Active Starter)
 @app.callback(
     Output("cost_per_active_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1406,6 +1124,8 @@ def ad_cost_active_callback(fund_namee):
     return cost_per_active_starter_eur_amount
 
 
+
+
 # updates Second Row Fourth Indicator (Number Waiting on Pack)
 
 @app.callback(
@@ -1423,6 +1143,7 @@ def wait_on_pack_callback(fund_namee):
 
 
 
+# updates Second Row Fifth Indicator (Number Waiting on Call)
 
 @app.callback(
     Output("waiting_call_id", "children"), [Input("fund_slug_dropdown", "value")]
@@ -1437,9 +1158,9 @@ def wait_on_call_callback(fund_namee):
     return number_waiting_call
 
 
+
+
 # updates Second Row Sixth Indicator (Number Waiting on Pack)
-
-
 
 @app.callback(
     Output("pack_wait_time_id", "children"), [Input("fund_slug_dropdown", "value")]
@@ -1457,6 +1178,7 @@ def pack_wait_time_callback(fund_namee):
 
 
 # updates Second Row Sevent Indicator (Fund Left )
+
 @app.callback(
     Output("fund_left_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1480,6 +1202,7 @@ def fund_left_callback(fund_namee):
 
 
 # updates Second Row Eight Indicator (Paid Out)
+
 @app.callback(
     Output("paid_out_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
@@ -1512,88 +1235,6 @@ def fund_allocated_callback(fund_namee):
 
 
 
-
-
-# hide/show modal
-@app.callback(
-    Output("opportunities_modal", "style"), [Input("new_opportunity", "n_clicks")]
-)
-def display_opportunities_modal_callback(n):
-    if n > 0:
-        return {"display": "block"}
-    return {"display": "none"}
-
-
-# reset to 0 add button n_clicks property
-@app.callback(
-    Output("new_opportunity", "n_clicks"),
-    [
-        Input("opportunities_modal_close", "n_clicks"),
-        Input("submit_new_opportunity", "n_clicks"),
-    ],
-)
-def close_modal_callback(n, n2):
-    return 0
-
-
-# add new opportunity to salesforce and stores new df in hidden div
-@app.callback(
-    Output("opportunities_df", "children"),
-    [Input("submit_new_opportunity", "n_clicks")],
-    [
-        State("new_opportunity_name", "value"),
-        State("new_opportunity_stage", "value"),
-        State("new_opportunity_amount", "value"),
-        State("new_opportunity_probability", "value"),
-        State("new_opportunity_date", "date"),
-        State("new_opportunity_type", "value"),
-        State("new_opportunity_source", "value"),
-        State("opportunities_df", "children"),
-    ],
-)
-def add_opportunity_callback(
-    n_clicks, name, stage, amount, probability, date, o_type, source, current_df
-):
-    if n_clicks > 0:
-        if name == "":
-            name = "Not named yet"
-        query = {
-            "Name": name,
-            "StageName": stage,
-            "Amount": amount,
-            "Probability": probability,
-            "CloseDate": date,
-            "Type": o_type,
-            "LeadSource": source,
-        }
-
-        sf_manager.add_opportunity(query)
-
-        df = sf_manager.get_opportunities()
-
-        return df.to_json(orient="split")
-
-    return current_df
-
-
-
-
-
-# updates starter applicant table based on 'State' df updates
-@app.callback(
-    Output("starter_applicant_table", "children"),
-    [Input("state_dropdown", "value"), Input("fund_slug_dropdown", "value")],
-)
-def table_state_callback(state, fund_account_number):
-    if state == 'all':
-        applicant_table_paid_fund_filter=applicant_table_paid[applicant_table_paid['parent_account_id']==fund_account_number]
-        applicant_table_state_converted=df_to_table(applicant_table_paid_fund_filter)
-        return  applicant_table_state_converted
-    else:
-        applicant_table_paid_fund_filter=applicant_table_paid[applicant_table_paid['parent_account_id']==fund_account_number]
-        applicant_table_state=applicant_table_paid_fund_filter[applicant_table_paid_fund_filter['state']==state]
-        applicant_table_state_converted=df_to_table(applicant_table_state)
-        return applicant_table_state_converted
 
 
 # update dotted map figure based on fund selected in dropdown
@@ -1632,6 +1273,8 @@ def project_costs_callback(fund_account_value):
     return project_costs_chart(fund_account_value)
 
 
+
+
 #Update Idea Demand Table
 
 @app.callback(
@@ -1653,3 +1296,23 @@ def idea_demand_table_callback(fund_namee):
 )
 def idea_starters_table_callback(fund_namee):
     return idea_starters_table(fund_namee)
+
+
+
+
+
+# updates starter applicant table based on 'State' df updates
+@app.callback(
+    Output("starter_applicant_table", "children"),
+    [Input("state_dropdown", "value"), Input("fund_slug_dropdown", "value")],
+)
+def table_state_callback(state, fund_account_number):
+    if state == 'all':
+        applicant_table_paid_fund_filter=applicant_table_paid[applicant_table_paid['parent_account_id']==fund_account_number]
+        applicant_table_state_converted=df_to_table(applicant_table_paid_fund_filter)
+        return  applicant_table_state_converted
+    else:
+        applicant_table_paid_fund_filter=applicant_table_paid[applicant_table_paid['parent_account_id']==fund_account_number]
+        applicant_table_state=applicant_table_paid_fund_filter[applicant_table_paid_fund_filter['state']==state]
+        applicant_table_state_converted=df_to_table(applicant_table_state)
+        return applicant_table_state_converted
