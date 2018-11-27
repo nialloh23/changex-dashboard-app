@@ -46,6 +46,12 @@ accounts = pd.read_sql('SELECT * FROM accounts', engine)
 split_accounts_options = accounts['options'].apply(pd.Series)
 account_options=pd.concat([accounts.drop(['options'], axis=1), split_accounts_options], axis=1)
 
+#Import User Orders Tables
+user_order = pd.read_sql('SELECT slug, options FROM user_orders', engine)
+split_user_options = user_order['options'].apply(pd.Series)
+user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_options], axis=1)
+
+
 
 
 
@@ -560,8 +566,10 @@ def pack_wait_time_callback(fund_namee):
     Output("fund_left_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
 def fund_left_callback(fund_namee):
-    total_fund_remaining_eur_amount=fund_namee
-    return total_fund_remaining_eur_amount
+    fund_row=user_order_options.loc[user_order_options['slug'] == fund_namee]
+    row_index=fund_row.index
+    fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
+    return fund_budget
 
 
 
