@@ -638,6 +638,7 @@ def idea_demand_table_callback(fund_namee):
 
 
 #Update Starters Per Idea Table
+#
 
 @app.callback(
     Output("staters_per_idea_id", "children"),
