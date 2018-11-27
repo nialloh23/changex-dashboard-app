@@ -455,8 +455,25 @@ def budget_remaining_callback(fund_namee):
     [Input("fund_slug_dropdown", "value")],
 )
 def delivery_cost_indicator_callback(fund_slug_value):
-        total_delivery_cost_eur=fund_slug_value
-        return total_delivery_cost_eur
+    filtered_accounts = account_options[account_options['parent_account_id']==fund_slug_value]
+    paid_accounts=filtered_accounts[filtered_accounts['state']=='paid']
+    number_active_groups=paid_accounts['state'].value_counts().values[0]
+
+    ad_insights = pd.read_sql_query("""SELECT spend FROM facebook_ads.insights  WHERE ad_id IN (SELECT id FROM facebook_ads.ads  WHERE adset_id IN (SELECT id FROM facebook_ads.ad_sets  WHERE campaign_id IN (SELECT id FROM facebook_ads.campaigns  WHERE name LIKE %s ))) """ , facebook_engine,params=("%MN Fund%",))
+    total_ad_spend=ad_insights['spend'].sum()
+
+    total_pack_costs = number_active_groups * 16.00
+
+    team_size=2
+    number_weeks=52
+    days_per_week=1
+    cost_per_day= (40000.0/52)/5
+    total_staff_costs=team_size*number_weeks*days_per_week*cost_per_day
+
+    total_costs= total_ad_spend +total_pack_costs + total_staff_costs
+    rounded_total_costs=int(round(total_costs))
+
+    return rounded_total_costs
 
 
 
