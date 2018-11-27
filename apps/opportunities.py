@@ -47,7 +47,7 @@ split_accounts_options = accounts['options'].apply(pd.Series)
 account_options=pd.concat([accounts.drop(['options'], axis=1), split_accounts_options], axis=1)
 
 #Import User Orders Tables
-user_order = pd.read_sql('SELECT slug, options FROM user_orders', engine)
+user_order = pd.read_sql('SELECT slug, options, replications FROM user_orders', engine)
 split_user_options = user_order['options'].apply(pd.Series)
 user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_options], axis=1)
 
@@ -498,8 +498,12 @@ def fund_paid_out_callback(fund_id):
     Output("total_ad_spend_id", "children"), [Input("fund_slug_dropdown", "value")]
 )
 def total_ad_spend_callback(fund_namee):
-    total_ad_spend_eur_amount=fund_namee
-    return total_ad_spend_eur_amount
+    fund_name=fund_namee
+    ad_insights = pd.read_sql_query("""SELECT spend FROM facebook_ads.insights  WHERE ad_id IN (SELECT id FROM facebook_ads.ads  WHERE adset_id IN (SELECT id FROM facebook_ads.ad_sets  WHERE campaign_id IN (SELECT id FROM facebook_ads.campaigns  WHERE name LIKE %s ))) """ , facebook_engine,params=("%MN Fund%",))
+    total_ad_spend=ad_insights['spend'].sum()
+    rounded_total_ad_spend=int(round(total_ad_spend))
+
+    return rounded_total_ad_spend
 
 
 
