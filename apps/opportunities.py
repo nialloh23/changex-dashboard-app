@@ -569,7 +569,8 @@ def fund_left_callback(fund_namee):
     fund_row=user_order_options.loc[user_order_options['slug'] == fund_namee]
     row_index=fund_row.index
     fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
-    return fund_budget
+    fund_remaining=fund_budget-total_paid_out
+    return fund_remaining
 
 
 
