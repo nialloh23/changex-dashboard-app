@@ -653,7 +653,11 @@ def budget_remaining_callback(fund_account_number, project_cost):
     total_project_budget= 30000
     delivery_cost_unjasoned= json.loads(project_cost)
     budget_remaining = total_project_budget - delivery_cost_unjasoned
-    return  budget_remaining
+
+    budget_remaining_rounded=round(budget_remaining)
+    budget_remaining_rounded_money=Money(budget_remaining_rounded,'USD')
+    budget_remaining_eur=budget_remaining_rounded_money.format('en_US')
+    return  budget_remaining_eur
 
 
 
