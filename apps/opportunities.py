@@ -86,7 +86,7 @@ def project_costs_chart(fund_account_value, total_ad_spend, total_active):
 
 #2 Project Wheel Chart
 
-def budget_wheel_chart(fund_name):
+def wheel_chart(fund_name):
     base_chart = {
         "values": [30000, 6000, 6000, 6000, 6000, 6000],
         "labels": ["-", "€6,000", "€12,000", "€18,000", "€24,000", "€30,000"],
@@ -207,6 +207,10 @@ def budget_wheel_chart(fund_name):
 
 layout = [
 
+    html.Div([
+        dcc.Storage(id='local', storage_type='local'),
+    ]),
+
     # top controls
     html.Div(
         [
@@ -283,43 +287,6 @@ layout = [
         className="row",
     ),
 
-#Second Indicators row div
-html.Div(
-    [
-        indicator_one(
-            "#00cc96", "Total Ad Spend", "total_ad_spend_id"
-        ),
-        indicator_one(
-            "#119DFF", "Ad Spend/Approved", "ad_cost_per_approved_id"
-        ),
-        indicator_one(
-            "#EF553B", "Ad Spend Per Active", "cost_per_active_id"
-        ),
-        indicator_one(
-            "#00cc96", "#Waiting on Pack", "waiting_on_pack_id"
-        ),
-        indicator_one(
-            "#119DFF", "#Calls Scheduled", "waiting_call_id"
-        ),
-        indicator_one(
-            "#EF553B",
-            "Pack Wait (Days)",
-            "pack_wait_time_id",
-        ),
-        indicator_one(
-            "#00cc96", "Fund Left", "fund_left_id"
-        ),
-        indicator_one(
-            "#119DFF", "Paid Out", "paid_out_id"
-        ),
-        indicator_one(
-            "#EF553B", "Allocated", "allocated_funding_id",
-        ),
-    ],
-    className="row",
-    style={"marginTop": "5px"}
-),
-
 
     #Top Row of Charts DIV
     html.Div(
@@ -357,7 +324,7 @@ html.Div(
                 [
                     html.P("Project Progress"),
                     dcc.Graph(
-                        id="budget_wheel_chart_id_2",
+                        id="progress_wheel_chart_id",
                         style={
                         "height": "90%",
                         "width": "98%"
@@ -375,6 +342,43 @@ html.Div(
     ),
 
 
+
+#Second Indicators row div
+html.Div(
+    [
+        indicator_one(
+            "#00cc96", "Total Ad Spend", "total_ad_spend_id"
+        ),
+        indicator_one(
+            "#119DFF", "Ad Spend/Approved", "ad_cost_per_approved_id"
+        ),
+        indicator_one(
+            "#EF553B", "Ad Spend Per Active", "cost_per_active_id"
+        ),
+        indicator_one(
+            "#00cc96", "#Waiting on Pack", "waiting_on_pack_id"
+        ),
+        indicator_one(
+            "#119DFF", "#Calls Scheduled", "waiting_call_id"
+        ),
+        indicator_one(
+            "#EF553B",
+            "Pack Wait (Days)",
+            "pack_wait_time_id",
+        ),
+        indicator_one(
+            "#00cc96", "Fund Left", "fund_left_id"
+        ),
+        indicator_one(
+            "#119DFF", "Paid Out", "paid_out_id"
+        ),
+        indicator_one(
+            "#EF553B", "Allocated", "allocated_funding_id",
+        ),
+    ],
+    className="row",
+    style={"marginTop": "5px"}
+),
 
 
 
@@ -764,9 +768,16 @@ def fund_allocated_callback(fund_namee):
     [Input("fund_slug_dropdown", "value")],
 )
 def budget_wheel_callback(fund_name):
-    return budget_wheel_chart(fund_name)
+    return wheel_chart(fund_name)
 
 
+# update project progress wheel chart
+@app.callback(
+    Output("progress_wheel_chart_id", "figure"),
+    [Input("fund_slug_dropdown", "value")],
+)
+def progress_wheel_callback(fund_name):
+    return wheel_chart(fund_name)
 
 
 
@@ -829,7 +840,6 @@ def idea_demand_table_callback(fund_namee):
 
 
 #Update Starters Per Idea Table
-#
 
 @app.callback(
     Output("staters_per_idea_id", "children"),
@@ -850,4 +860,15 @@ def idea_starters_table_callback(fund_namee):
 )
 def table_state_callback(state, fund_account_number):
         table_state=fund_account_number
+        return table_state
+
+
+# Callback to read in accounts_applications_users and store in new store dash_core_component
+@app.callback(
+    Output('local', 'data'),
+    [Input("fund_slug_dropdown", "value")],
+)
+def applicant_data_callback(fund_account_number):
+        accounts_applications = pd.read_sql("SELECT accounts.balance_cents, accounts.parent_account_id, accounts.state, solution_applications.first_name, solution_applications.last_name, solution_applications.created_at, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.latitude, solution_applications.longitude, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id", engine)
+        filtered_accounts_applications = accounts_applications[accounts_applications['parent_account_id']==fund_account_number]
         return table_state
