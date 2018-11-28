@@ -67,6 +67,8 @@ app.layout = html.Div(
     #    html.Div(sf_manager.get_leads().to_json(orient="split"), id="leads_df", style={"display": "none"}), # leads df
     #    html.Div(sf_manager.get_cases().to_json(orient="split"), id="cases_df", style={"display": "none"}), # cases df
 
+    
+
 
 
         # Tab content

@@ -81,10 +81,11 @@ def indicator_four(color, text, id_value):
             ),
             html.P(
                 id = id_value,
-                className="indicator_value_four"
+                className="indicator_value_four",
             ),
         ],
         className="four columns indicator",
+
 
     )
 

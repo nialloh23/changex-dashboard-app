@@ -14,6 +14,7 @@ import dateutil.parser
 
 import pandas as pd
 import json
+from json import encoder
 import numpy as np
 import math
 from money import Money
@@ -132,6 +133,9 @@ layout = [
         className="row",
         style={"marginBottom": "10"},
     ),
+
+    # Hidden div inside the app that stores the intermediate values
+    #html.Div(id='delivery_cost_id', style={'display': 'none'}),
 
     # indicators row div
     html.Div(
@@ -426,7 +430,11 @@ html.Div(
         className="row",
         style={"marginTop": "5px", "max height": "200px"},
     ),
+
+
+
 ]
+
 
 
 
@@ -440,29 +448,31 @@ html.Div(
 
 
 # updates First Row left indicator
-@app.callback(
-    Output("budget_remaining_id", "children"), [Input("fund_slug_dropdown", "value")]
-)
-def budget_remaining_callback(fund_namee):
-        budget_remaining_eur=fund_namee
-        return budget_remaining_eur
+@app.callback(Output("budget_remaining_id", "children"),
+            [Input("fund_slug_dropdown", "value"),
+            Input("delivery_cost_id", "children")])
+
+def budget_remaining_callback(fund_account_number, project_cost):
+    total_project_budget= 30000
+    delivery_cost_unjasoned= json.loads(project_cost)
+    budget_remaining = total_project_budget - delivery_cost_unjasoned
+
+    return  budget_remaining
+
+
 
 
 
 # updates first row middle indicator value based on df updates
 @app.callback(
     Output("delivery_cost_id", "children"),
-    [Input("fund_slug_dropdown", "value")],
+    [Input("fund_slug_dropdown", "value"),
+     Input("total_ad_spend_id", "children"),
+     Input("number_active_id", "children")],
 )
-def delivery_cost_indicator_callback(fund_slug_value):
-    filtered_accounts = account_options[account_options['parent_account_id']==fund_slug_value]
-    paid_accounts=filtered_accounts[filtered_accounts['state']=='paid']
-    number_active_groups=paid_accounts['state'].value_counts().values[0]
-
-    ad_insights = pd.read_sql_query("""SELECT spend FROM facebook_ads.insights  WHERE ad_id IN (SELECT id FROM facebook_ads.ads  WHERE adset_id IN (SELECT id FROM facebook_ads.ad_sets  WHERE campaign_id IN (SELECT id FROM facebook_ads.campaigns  WHERE name LIKE %s ))) """ , facebook_engine,params=("%MN Fund%",))
-    total_ad_spend=ad_insights['spend'].sum()
-
-    total_pack_costs = number_active_groups * 16.00
+def delivery_cost_indicator_callback(fund_slug_value, total_ad_spend, number_active_groups):
+    total_ad_spend_unjasoned= json.loads(total_ad_spend)
+    total_pack_costs = json.loads(number_active_groups) * 16.00
 
     team_size=2
     number_weeks=52
@@ -470,10 +480,9 @@ def delivery_cost_indicator_callback(fund_slug_value):
     cost_per_day= (40000.0/52)/5
     total_staff_costs=team_size*number_weeks*days_per_week*cost_per_day
 
-    total_costs= total_ad_spend +total_pack_costs + total_staff_costs
-    rounded_total_costs=int(round(total_costs))
+    total_costs= total_ad_spend_unjasoned +total_pack_costs + total_staff_costs
 
-    return rounded_total_costs
+    return json.dumps(total_costs)
 
 
 
@@ -486,7 +495,8 @@ def total_active_callback(fund_slug_value):
     filtered_accounts = account_options[account_options['parent_account_id']==fund_slug_value]
     paid_accounts=filtered_accounts[filtered_accounts['state']=='paid']
     number_active_groups=paid_accounts['state'].value_counts().values[0]
-    return number_active_groups
+    number_active_float=number_active_groups.astype(np.float64)
+    return json.dumps(number_active_float)
 
 
 
@@ -518,9 +528,9 @@ def total_ad_spend_callback(fund_namee):
     fund_name=fund_namee
     ad_insights = pd.read_sql_query("""SELECT spend FROM facebook_ads.insights  WHERE ad_id IN (SELECT id FROM facebook_ads.ads  WHERE adset_id IN (SELECT id FROM facebook_ads.ad_sets  WHERE campaign_id IN (SELECT id FROM facebook_ads.campaigns  WHERE name LIKE %s ))) """ , facebook_engine,params=("%MN Fund%",))
     total_ad_spend=ad_insights['spend'].sum()
-    rounded_total_ad_spend=int(round(total_ad_spend))
+    rounded_total_ad_spend=round(total_ad_spend)
 
-    return rounded_total_ad_spend
+    return json.dumps(rounded_total_ad_spend)
 
 
 
@@ -537,11 +547,14 @@ def ad_cost_approved_callback(fund_namee):
 
 # updates Second Row Third Indicator (Cost Per Active Starter)
 @app.callback(
-    Output("cost_per_active_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("cost_per_active_id", "children"),
+     [Input("total_ad_spend_id", "children"),
+     Input("number_active_id", "children")],
 )
-def ad_cost_active_callback(fund_namee):
-    cost_per_active_starter_eur_amount=fund_namee
-    return cost_per_active_starter_eur_amount
+
+def ad_cost_active_callback(total_ad_spend, number_active):
+    cost_per_active_starter=json.loads(total_ad_spend)/json.loads(number_active)
+    return cost_per_active_starter
 
 
 
