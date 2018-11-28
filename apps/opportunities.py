@@ -47,12 +47,6 @@ accounts = pd.read_sql('SELECT * FROM accounts', engine)
 split_accounts_options = accounts['options'].apply(pd.Series)
 account_options=pd.concat([accounts.drop(['options'], axis=1), split_accounts_options], axis=1)
 
-#Import User Orders Tables
-user_order = pd.read_sql('SELECT slug, options, replications FROM user_orders', engine)
-split_user_options = user_order['options'].apply(pd.Series)
-user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_options], axis=1)
-
-
 
 
 
@@ -61,12 +55,31 @@ user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_o
 
 
 
-
-
-
 ##=======3.0 ANALYTICS===========
 
 
+
+#1 Project Cost Breakdown
+
+def project_costs_chart(fund_account_value, total_ad_spend, total_active):
+    total_ad_spend= json.loads(total_ad_spend)
+    total_pack_costs = json.loads(total_active) * 16.00
+    staff_daily_rate= 4000.0/22
+    total_staff_costs = staff_daily_rate * 88
+
+
+    labels = ['Ad Spend','Pack Costs','Staff Costs']
+    values = [total_ad_spend, total_pack_costs, total_staff_costs]
+    colors = ['#E01273', '#EFEEED', '#58B74E']
+
+    trace = go.Pie(labels=labels,
+                   values=values,
+                   marker=dict(colors=colors),
+                   textinfo= 'value+percent',
+                   )
+    layout = dict(margin=dict(l=15, r=10, t=0, b=65), legend=dict(orientation="h"))
+
+    return dict(data=[trace], layout=layout)
 
 
 
@@ -214,7 +227,7 @@ html.Div(
                 [
                     html.P("Project Costs"),
                         dcc.Graph(
-                            id='project_costs',
+                            id='project_costs_id',
                             style={"height": "90%", "width": "98%"},
                             config=dict(displayModeBar=False),
                             )
@@ -456,7 +469,6 @@ def budget_remaining_callback(fund_account_number, project_cost):
     total_project_budget= 30000
     delivery_cost_unjasoned= json.loads(project_cost)
     budget_remaining = total_project_budget - delivery_cost_unjasoned
-
     return  budget_remaining
 
 
@@ -473,15 +485,12 @@ def budget_remaining_callback(fund_account_number, project_cost):
 def delivery_cost_indicator_callback(fund_slug_value, total_ad_spend, number_active_groups):
     total_ad_spend_unjasoned= json.loads(total_ad_spend)
     total_pack_costs = json.loads(number_active_groups) * 16.00
-
     team_size=2
     number_weeks=52
     days_per_week=1
     cost_per_day= (40000.0/52)/5
     total_staff_costs=team_size*number_weeks*days_per_week*cost_per_day
-
     total_costs= total_ad_spend_unjasoned +total_pack_costs + total_staff_costs
-
     return json.dumps(total_costs)
 
 
@@ -529,7 +538,6 @@ def total_ad_spend_callback(fund_namee):
     ad_insights = pd.read_sql_query("""SELECT spend FROM facebook_ads.insights  WHERE ad_id IN (SELECT id FROM facebook_ads.ads  WHERE adset_id IN (SELECT id FROM facebook_ads.ad_sets  WHERE campaign_id IN (SELECT id FROM facebook_ads.campaigns  WHERE name LIKE %s ))) """ , facebook_engine,params=("%MN Fund%",))
     total_ad_spend=ad_insights['spend'].sum()
     rounded_total_ad_spend=round(total_ad_spend)
-
     return json.dumps(rounded_total_ad_spend)
 
 
@@ -605,6 +613,10 @@ def fund_left_callback(fund_name_slug, fund_account_number):
     filtered_fund_paid_accounts=accounts[accounts['parent_account_id'].isin(filtered_list_of_accounts)]
     total_paid_out=filtered_fund_paid_accounts['balance_cents'].sum()/100
 
+    #Import User Orders Tables
+    user_order = pd.read_sql('SELECT slug, options, replications FROM user_orders', engine)
+    split_user_options = user_order['options'].apply(pd.Series)
+    user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_options], axis=1)
     fund_row=user_order_options.loc[user_order_options['slug'] == fund_name_slug]
     row_index=fund_row.index
     fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
@@ -661,12 +673,13 @@ def acquisition_callback(fund_account_value):
 
 # update project costs Pie Chart breakdown
 @app.callback(
-    Output("project_costs", "figure"),
-    [Input("fund_slug_dropdown", "value")],
+    Output("project_costs_id", "figure"),
+    [Input("fund_slug_dropdown", "value"),
+     Input("total_ad_spend_id", "children"),
+     Input("number_active_id", "children")]
 )
-def project_costs_callback(fund_account_value):
-    fund_value=fund_account_value
-    return fund_value
+def project_costs_callback(fund_account_value, total_ad_spend, total_active):
+    return project_costs_chart(fund_account_value, total_ad_spend, total_active)
 
 
 
