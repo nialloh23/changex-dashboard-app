@@ -59,7 +59,7 @@ account_options=pd.concat([accounts.drop(['options'], axis=1), split_accounts_op
 
 
 
-#1 Project Cost Breakdown
+#1 Project Cost Breakdown Chart
 
 def project_costs_chart(fund_account_value, total_ad_spend, total_active):
     total_ad_spend= json.loads(total_ad_spend)
@@ -83,6 +83,123 @@ def project_costs_chart(fund_account_value, total_ad_spend, total_active):
 
 
 
+
+#2 Project Wheel Chart
+
+def budget_wheel_chart(fund_name):
+    base_chart = {
+        "values": [30000, 6000, 6000, 6000, 6000, 6000],
+        "labels": ["-", "€6,000", "€12,000", "€18,000", "€24,000", "€30,000"],
+        "domain": {"x": [0, .48]},
+        "marker": {
+            "colors": [
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)'
+            ],
+            "line": {
+                "width": 1
+            }
+        },
+        "name": "Gauge",
+        "hole": .4,
+        "type": "pie",
+        "direction": "clockwise",
+        "rotation": 108,
+        "showlegend": False,
+        "hoverinfo": "none",
+        "textinfo": "label",
+        "textposition": "outside"
+    }
+
+    meter_chart = {
+        "values": [30000, 6000, 6000, 6000, 6000, 6000],
+        "labels": ["-", "20%", "40%", "60%", "80%", "Full Budget"],
+        "marker": {
+            'colors': [
+                'rgb(255, 255, 255)',
+                'rgb(225,242,223)',
+                'rgb(191,227,187)',
+                'rgb(156,212,150)',
+                'rgb(122,198,114)',
+                'rgb(88,183,78)'
+            ]
+        },
+        "domain": {"x": [0, 0.48]},
+        "name": "Gauge",
+        "hole": .3,
+        "type": "pie",
+        "direction": "clockwise",
+        "rotation": 90,
+        "showlegend": False,
+        "textinfo": "label",
+        "textposition": "inside",
+        "hoverinfo": "none"
+    }
+    h = 0.24
+    k = 0.5
+    r = 0.15
+    my_raw_value=80
+    # Map my_raw_value to degrees. my_raw_value is between 0 and 300
+    theta = (30000 - 15000) * 180 / 30000
+    # and then into radians
+    theta = theta * math.pi / 180
+    x = h + r*math.cos(theta)
+    y = k + r*math.sin(theta)
+    path_new = 'M 0.235 0.5 L ' + str(x) + ' ' + str(y) + ' L 0.245 0.5 Z'
+
+
+    layout = {
+        'autosize': True,
+        #'width': 208,
+        #'height': 130.6,
+        'margin': {
+            'l': 150,
+            'r':15,
+            'b':0,
+            't':15,
+            'pad':4
+        },
+        'xaxis': {
+            'showticklabels': False,
+            'showgrid': False,
+            'zeroline': False,
+        },
+        'yaxis': {
+            'showticklabels': False,
+            'showgrid': False,
+            'zeroline': False,
+        },
+        'shapes': [
+            {
+                'type': 'path',
+                'path': path_new,
+                'fillcolor': 'rgb(224,18,115)',
+                'line': {
+                    'width': 0.5
+                },
+                'xref': 'paper',
+                'yref': 'paper'
+            }
+        ],
+        'annotations': [
+            {
+                'xref': 'paper',
+                'yref': 'paper',
+                'x': 0.23,
+                'y': 0.45,
+                'text': '50',
+                'showarrow': False
+            }
+        ]
+    }
+    # we don't want the boundary now
+    base_chart['marker']['line']['width'] = 0
+    return dict(data=[base_chart, meter_chart], layout=layout)
 
 
 
@@ -211,7 +328,7 @@ html.Div(
                 [
                     html.P("Project Budget"),
                     dcc.Graph(
-                        id="active_funnel_2",
+                        id="budget_wheel_chart_id",
                         style={
                         "height": "90%",
                         "width": "98%"
@@ -240,7 +357,7 @@ html.Div(
                 [
                     html.P("Project Progress"),
                     dcc.Graph(
-                        id="active_funnel_3",
+                        id="budget_wheel_chart_id_2",
                         style={
                         "height": "90%",
                         "width": "98%"
@@ -483,6 +600,7 @@ def budget_remaining_callback(fund_account_number, project_cost):
      Input("number_active_id", "children")],
 )
 def delivery_cost_indicator_callback(fund_slug_value, total_ad_spend, number_active_groups):
+    fund_slug_dropdown=fund_slug_value
     total_ad_spend_unjasoned= json.loads(total_ad_spend)
     total_pack_costs = json.loads(number_active_groups) * 16.00
     team_size=2
@@ -637,6 +755,18 @@ def fund_allocated_callback(fund_namee):
     allocated_accounts=filtered_accounts[(filtered_accounts['state']=='allocated') | (filtered_accounts['state']=='approved')]
     total_allocated=allocated_accounts['balance_cents'].sum()/100
     return total_allocated
+
+
+
+# update budget wheel chart
+@app.callback(
+    Output("budget_wheel_chart_id", "figure"),
+    [Input("fund_slug_dropdown", "value")],
+)
+def budget_wheel_callback(fund_name):
+    return budget_wheel_chart(fund_name)
+
+
 
 
 
