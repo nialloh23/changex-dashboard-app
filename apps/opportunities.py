@@ -203,12 +203,77 @@ def wheel_chart(fund_name):
 
 
 
+
+
+#Acquisition_chart function
+
+#def acquisition_chart(unjasoned_data):
+#    aquisition_source=unjasoned_data[['state','utm_source']]
+#    Facebook_Mapping = {'':'Organic','intercom': 'Intercom','FacebookPaid_GIY': 'FacebookAds','FacebookPaid_IdeaFund': 'FacebookAds', 'FacebookPaid_Poetry': 'FacebookAds','FacebookPaid_MNFund': 'FacebookAds','FacebookPaid_WelcomingWeek': 'FacebookAds','FacebookPaid_StreetFeast': 'FacebookAds','FacebookPaid_Kaboom': 'FacebookAds','FacebookPaid_MensShed': 'FacebookAds'}
+#    mapped_aquisition_source=aquisition_source['utm_source'].map(Facebook_Mapping)
+#    mapped_aquisition_source_active=pd.concat([aquisition_source.drop(['utm_source'], axis=1), mapped_aquisition_source], axis=1)
+#    mapped_aquisition_source_active.groupby('utm_source').count()
+#
+#    temp = mapped_aquisition_source_active["utm_source"].value_counts()
+#    temp_y0 = []
+#    temp_y1 = []
+#    for val in temp.index:
+#        true_y0=(mapped_aquisition_source_active[mapped_aquisition_source_active["utm_source"]==val] =='paid') | (mapped_aquisition_source_active[mapped_aquisition_source_active["utm_source"]==val] =='approved')
+#        temp_y0.append(np.sum(true_y0['state']))
+#
+#        true_y1=(mapped_aquisition_source_active[mapped_aquisition_source_active["utm_source"]==val] =='failed') | (mapped_aquisition_source_active[mapped_aquisition_source_active["utm_source"]==val] =='rejected')
+#        temp_y1.append(np.sum(true_y1['state']))
+#
+#
+#    trace1 = go.Bar(
+#        x = temp.index,
+#        y = temp_y1,
+#        name='Failed Projects'
+#    )
+#    trace2 = go.Bar(
+#        x = temp.index,
+#        y = temp_y0,
+#        name='Paid Projects'
+#    )
+#
+#    data = [trace1, trace2]
+#    layout = go.Layout(
+#        title = "Number of Paid Projects By Aquisition Source",
+#        barmode='stack',
+#        width = 1000
+#    )
+#
+#    return dict(data=data, layout=layout)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 ##=======4.0 HTML LAYOUT===========
 
 layout = [
 
     html.Div([
-        dcc.Storage(id='local', storage_type='local'),
+        dcc.Store(id='memory_output', storage_type='local'),
+
     ]),
 
     # top controls
@@ -414,17 +479,17 @@ html.Div(
             ),
 
 
-            html.Div(
-                [
-                    html.P("Starter Acquisition Source"),
-                    dcc.Graph(
-                        id='acquisition_source',
-                        style={"height": "90%", "width": "98%"},
-                        config=dict(displayModeBar=False),
-                        )
-                ],
-                className="four columns chart_div",
-                ),
+        #    html.Div(
+        #        [
+        #            html.P("Starter Acquisition Source"),
+        #            dcc.Graph(
+        #                id='acquisition_source',
+        #                style={"height": "90%", "width": "98%"},
+        #                config=dict(displayModeBar=False),
+        #                )
+        #        ],
+        #        className="four columns chart_div",
+        #        ),
 
         ],
         className="row",
@@ -803,13 +868,13 @@ def funnel_callback(fund_account):
 
 
 # update acquisition figure based on fund selected in dropdown
-@app.callback(
-    Output("acquisition_source", "figure"),
-    [Input("fund_slug_dropdown", "value")],
-)
-def acquisition_callback(fund_account_value):
-    fund_account=fund_account_value
-    return fund_account
+#@app.callback(
+#    Output("acquisition_source", "figure"),
+#    [Input('memory_output', 'data'),
+#    Input('fund_slug_dropdown', 'value')])
+#
+#def acquisition_callback(data, fund_account_value):
+#    return acquisition_chart(data)
 
 
 # update project costs Pie Chart breakdown
@@ -864,11 +929,11 @@ def table_state_callback(state, fund_account_number):
 
 
 # Callback to read in accounts_applications_users and store in new store dash_core_component
-@app.callback(
-    Output('local', 'data'),
-    [Input("fund_slug_dropdown", "value")],
-)
-def applicant_data_callback(fund_account_number):
-        accounts_applications = pd.read_sql("SELECT accounts.balance_cents, accounts.parent_account_id, accounts.state, solution_applications.first_name, solution_applications.last_name, solution_applications.created_at, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.latitude, solution_applications.longitude, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id", engine)
-        filtered_accounts_applications = accounts_applications[accounts_applications['parent_account_id']==fund_account_number]
-        return table_state
+#@app.callback(
+#    Output('memory_output', 'data'),
+#    [Input("fund_slug_dropdown", "value")])
+
+#def applicant_data_callback(fund_account_number):
+#        accounts_applications = pd.read_sql("SELECT accounts.balance_cents, accounts.parent_account_id, accounts.state, solution_applications.first_name, solution_applications.last_name, solution_applications.created_at, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.latitude, solution_applications.longitude, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id", engine)
+#        data = accounts_applications[accounts_applications['parent_account_id']==fund_account_number]
+#        return data.to_dict('records')
