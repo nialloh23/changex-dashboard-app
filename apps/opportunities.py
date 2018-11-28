@@ -271,10 +271,10 @@ def wheel_chart(fund_name):
 
 layout = [
 
-    html.Div([
-        dcc.Store(id='memory_output', storage_type='local'),
+    #html.Div([
+    #    dcc.Store(id='memory_output', storage_type='local'),
 
-    ]),
+    #]),
 
     # top controls
     html.Div(
