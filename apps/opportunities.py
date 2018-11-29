@@ -263,6 +263,67 @@ def acquisition_chart(unjasoned_data):
 
 
 
+#3 Starter Map Chart
+
+def map_chart(filtered_accounts_applications):
+    unjasoned_data=json.loads(filtered_accounts_applications)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_data)
+    site_lat = filtered_accounts_applications_df.latitude
+    site_lon = filtered_accounts_applications_df.longitude
+    locations_name = filtered_accounts_applications_df.location_name
+    map_data = [
+    go.Scattermapbox(
+        lat=site_lat,
+        lon=site_lon,
+        mode='markers',
+        marker=dict(
+            size=9,
+            color='rgb(224, 18, 115)',
+            opacity=0.7
+        ),
+        text=locations_name,
+        hoverinfo='text'
+    ),
+    ]
+
+    map_layout = go.Layout(
+        autosize=True,
+        hovermode='closest',
+        showlegend=False,
+        margin=go.layout.Margin(
+            l=15,
+            r=15,
+            b=15,
+            t=15,
+            pad=4
+        ),
+    mapbox=dict(
+        accesstoken=mapbox_access_token,
+        bearing=0,
+        center=dict(
+            lat=46,
+            lon=-92
+        ),
+        pitch=0,
+        zoom=5,
+        style='light'
+        ),
+    )
+    return dict(data=map_data, layout=map_layout)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ##=======4.0 HTML LAYOUT===========
@@ -861,11 +922,10 @@ def progress_wheel_callback(fund_name):
 # update dotted map figure based on fund selected in dropdown
 @app.callback(
     Output("starter_map", "figure"),
-    [Input("fund_slug_dropdown", "value")],
+    [Input('memory_output', 'data')],
 )
-def map_callback(fund_name):
-    fund=fund_name
-    return fund
+def map_callback(filtered_accounts_applications):
+    return map_chart(filtered_accounts_applications)
 
 
 # update active starter funnel based on fund selected in dropdown
@@ -945,6 +1005,6 @@ def table_state_callback(state, fund_account_number):
     [Input("fund_slug_dropdown", "value")])
 
 def applicant_data_callback(fund_account_number):
-        accounts_applications = pd.read_sql("SELECT accounts.balance_cents, accounts.parent_account_id, accounts.state, solution_applications.first_name, solution_applications.last_name, solution_applications.created_at, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.latitude, solution_applications.longitude, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id", engine)
+        accounts_applications = pd.read_sql("SELECT accounts.balance_cents, accounts.parent_account_id, accounts.state, solution_applications.first_name, solution_applications.last_name, solution_applications.created_at, solution_applications.location_name, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.latitude, solution_applications.longitude, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id", engine)
         data = accounts_applications[accounts_applications['parent_account_id']==fund_account_number]
         return data.to_json()
