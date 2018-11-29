@@ -11,6 +11,9 @@ import plotly.graph_objs as go
 from datetime import date
 from datetime import datetime
 import dateutil.parser
+import string
+import time
+
 
 import pandas as pd
 import json
@@ -314,13 +317,31 @@ def map_chart(filtered_accounts_applications):
 
 
 
+def active_funnel_chart(applications_steps):
+    temp_application_steps = applications_steps["step_type"].value_counts()
 
-
-
-
-
-
-
+    trace1 = go.Bar(
+        x = temp_application_steps.index,
+        y = temp_application_steps.values,
+        marker=dict(
+                color='rgb(88,183,78)',
+                ),
+        name='Fund Starters'
+    )
+    plot_layout = go.Layout(
+        autosize=True,
+        #width=450,
+        #height=250,
+        barmode='stack',
+        margin=go.layout.Margin(
+            l=40,
+            r=40,
+            b=40,
+            t=40,
+            pad=4
+            )
+        )
+    return go.Figure(data=[trace1], layout=plot_layout)
 
 
 
@@ -829,10 +850,18 @@ def ad_cost_active_callback(total_ad_spend, number_active):
 # updates Second Row Fourth Indicator (Number Waiting on Pack)
 
 @app.callback(
-    Output("waiting_on_pack_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("waiting_on_pack_id", "children"),
+    [Input('memory_output', 'data')]
 )
-def wait_on_pack_callback(fund_namee):
-    waiting_on_pack=fund_namee
+def wait_on_pack_callback(filtered_accounts_applications):
+    unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
+    non_rejected_applicants=filtered_accounts_applications_df[filtered_accounts_applications_df['state']!='rejected']
+    want_starter_pack=non_rejected_applicants[non_rejected_applicants['receive_starter_pack']==True]
+    number_want_pack=want_starter_pack['receive_starter_pack'].count()
+    number_received_pack=non_rejected_applicants['starter_pack_sent_at'].count()
+    waiting_on_pack=number_want_pack-number_received_pack
+
     return waiting_on_pack
 
 
@@ -840,11 +869,15 @@ def wait_on_pack_callback(fund_namee):
 # updates Second Row Fifth Indicator (Number Waiting on Call)
 
 @app.callback(
-    Output("waiting_call_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("waiting_call_id", "children"),
+    [Input('memory_output', 'data')]
 )
-def wait_on_call_callback(fund_namee):
-    number_waiting_call=fund_namee
-    return number_waiting_call
+def wait_on_call_callback(filtered_accounts_applications):
+    unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
+    number_starters_called=filtered_accounts_applications_df['received_starter_call_at'].count()
+
+    return number_starters_called
 
 
 
@@ -852,13 +885,19 @@ def wait_on_call_callback(fund_namee):
 # updates Second Row Sixth Indicator (Number Waiting on Pack)
 
 @app.callback(
-    Output("pack_wait_time_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("pack_wait_time_id", "children"),
+    [Input('memory_output', 'data')]
 )
-def pack_wait_time_callback(fund_namee):
-    pack_wait_days=fund_namee
-    return pack_wait_days
-
-
+def pack_wait_time_callback(filtered_accounts_applications):
+#    unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
+#    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
+#    print(filtered_accounts_applications_df)
+#    non_rejected_applicants=filtered_accounts_applications_df[filtered_accounts_applications_df['state']!='rejected']
+#    want_starter_pack=non_rejected_applicants[non_rejected_applicants['receive_starter_pack']==True]
+#    pack_wait_time=want_starter_pack['starter_pack_sent_at'] - want_starter_pack['created_at']
+#    average_wait_time=pack_wait_time.mean()
+#    #average_wait_time=average_wait_time.days
+    return 10
 
 
 # updates Second Row Sevent Indicator (Fund Left )
@@ -931,11 +970,20 @@ def map_callback(filtered_accounts_applications):
 # update active starter funnel based on fund selected in dropdown
 @app.callback(
     Output("active_funnel", "figure"),
-    [Input("fund_slug_dropdown", "value")],
+    [Input('memory_output', 'data')],
 )
-def funnel_callback(fund_account):
-    active_fund=fund_account
-    return active_fund
+def funnel_callback(filtered_accounts_applications):
+    unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
+    list_of_locations=filtered_accounts_applications_df['solution_location_id'].tolist()
+
+    onboarding_steps = pd.read_sql('SELECT * FROM onboarding_steps', engine)
+    completed_onboarding_steps = pd.read_sql('SELECT * FROM completed_onboarding_steps', engine)
+    merged_onboarding_steps=completed_onboarding_steps.merge(onboarding_steps, left_on='onboarding_step_id', right_on='id')
+
+    applications_steps=merged_onboarding_steps[merged_onboarding_steps['location_id'].isin(list_of_locations)]
+
+    return active_funnel_chart(applications_steps)
 
 
 # update acquisition figure based on fund selected in dropdown
