@@ -22,7 +22,7 @@ from money import Money
 import psycopg2
 from sqlalchemy import create_engine
 
-from app import app, indicator_one, indicator_four, millify, df_to_table
+from app import app, indicator_one, indicator_four, millify, df_to_table, to_dollar
 mapbox_access_token = 'pk.eyJ1IjoibmlhbGxjaGFuZ2V4IiwiYSI6ImNqbHFyc2FjaTJjYXUza3Biem9tamw2enEifQ.iy0uUg8EKAYaFbZuN1iodw'
 
 
@@ -655,9 +655,7 @@ def budget_remaining_callback(fund_account_number, project_cost):
     budget_remaining = total_project_budget - delivery_cost_unjasoned
 
     budget_remaining_rounded=round(budget_remaining)
-    budget_remaining_rounded_money=Money(budget_remaining_rounded,'USD')
-    budget_remaining_eur=budget_remaining_rounded_money.format('en_US')
-    return  budget_remaining_eur
+    return  to_dollar(budget_remaining_rounded)
 
 
 
@@ -709,7 +707,7 @@ def fund_paid_out_callback(fund_id):
     filtered_list_of_accounts=filtered_accounts['id'].tolist()
     filtered_fund_paid_accounts=accounts[accounts['parent_account_id'].isin(filtered_list_of_accounts)]
     total_paid_out=filtered_fund_paid_accounts['balance_cents'].sum()/100
-    return total_paid_out
+    return to_dollar(total_paid_out)
 
 
 
@@ -734,11 +732,22 @@ def total_ad_spend_callback(fund_namee):
 
 # updates Second Row Second Indicator (Cost Per Approved Starter)
 @app.callback(
-    Output("ad_cost_per_approved_id", "children"), [Input("fund_slug_dropdown", "value")]
+    Output("ad_cost_per_approved_id", "children"),
+     [Input("total_ad_spend_id", "children"),
+     Input('memory_output', 'data')],
 )
-def ad_cost_approved_callback(fund_namee):
-    cost_per_approved_starter_eur_amount=fund_namee
-    return cost_per_approved_starter_eur_amount
+def ad_cost_approved_callback(total_ad_spend, filtered_accounts_applications):
+    unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
+    aquisition_source=filtered_accounts_applications_df[['state','utm_source']]
+    Facebook_Mapping = {'':'Organic','intercom': 'Intercom','FacebookPaid_GIY': 'FacebookAds','FacebookPaid_IdeaFund': 'FacebookAds', 'FacebookPaid_Poetry': 'FacebookAds','FacebookPaid_MNFund': 'FacebookAds','FacebookPaid_WelcomingWeek': 'FacebookAds','FacebookPaid_StreetFeast': 'FacebookAds','FacebookPaid_Kaboom': 'FacebookAds','FacebookPaid_MensShed': 'FacebookAds'}
+    mapped_aquisition_source=filtered_accounts_applications_df['utm_source'].map(Facebook_Mapping)
+    mapped_aquisition_source_active=pd.concat([aquisition_source.drop(['utm_source'], axis=1), mapped_aquisition_source], axis=1)
+    facebook_approved_starters=mapped_aquisition_source_active[mapped_aquisition_source_active['utm_source'] == 'FacebookAds']
+    number_fb_approved=facebook_approved_starters['utm_source'].count()
+    total_ad_spend=json.loads(total_ad_spend)
+    cost_per_approved=total_ad_spend/number_fb_approved
+    return to_dollar(cost_per_approved)
 
 
 
@@ -746,12 +755,12 @@ def ad_cost_approved_callback(fund_namee):
 @app.callback(
     Output("cost_per_active_id", "children"),
      [Input("total_ad_spend_id", "children"),
-     Input("number_active_id", "children")],
+     Input("number_active_id", "children")]
 )
 
 def ad_cost_active_callback(total_ad_spend, number_active):
     cost_per_active_starter=json.loads(total_ad_spend)/json.loads(number_active)
-    return cost_per_active_starter
+    return to_dollar(cost_per_active_starter)
 
 
 
@@ -810,7 +819,7 @@ def fund_left_callback(fund_name_slug, fund_account_number):
     row_index=fund_row.index
     fund_budget=user_order_options.loc[row_index]['amount'].iloc[0]
     fund_remaining=fund_budget-total_paid_out
-    return fund_remaining
+    return to_dollar(fund_remaining)
 
 
 
@@ -825,7 +834,7 @@ def fund_allocated_callback(fund_namee):
     filtered_accounts = account_options[account_options['parent_account_id']==fund_namee]
     allocated_accounts=filtered_accounts[(filtered_accounts['state']=='allocated') | (filtered_accounts['state']=='approved')]
     total_allocated=allocated_accounts['balance_cents'].sum()/100
-    return total_allocated
+    return to_dollar(total_allocated)
 
 
 

@@ -89,7 +89,7 @@ def indicator_four(color, text, id_value):
 
     )
 
-#def to_dollar (amount):
-#    cash=Money(amount,'USD')
-#    dollar_amount=cash.format('en_US')
-#    return dollar_amount
+def to_dollar (amount):
+    cash=Money(amount,'USD')
+    dollar_amount=cash.format('en_US')
+    return dollar_amount
