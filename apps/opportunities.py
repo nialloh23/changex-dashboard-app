@@ -1225,11 +1225,47 @@ def group_stages_callback(fund_account_number):
 # updates starter applicant table based on 'State' df updates
 @app.callback(
     Output("starter_applicant_table", "children"),
-    [Input("state_dropdown", "value"), Input("fund_slug_dropdown", "value")],
+    [Input("fund_slug_dropdown", "value")],
 )
-def table_state_callback(state, fund_account_number):
-        table_state=fund_account_number
-        return table_state
+def table_state_callback(fund_account_number):
+        #Import and filter accounts_applications tables
+        accounts_applications_users = pd.read_sql("SELECT accounts.balance_cents, accounts.state, accounts.parent_account_id, solution_applications.first_name, solution_applications.last_name, solution_applications.user_id, solution_applications.created_at, solution_applications.solution_id, solution_applications.solution_location_id, solution_applications.utm_source, solution_applications.receive_starter_pack, solution_applications.starter_pack_sent_at, solution_applications.received_starter_call_at, extras.extras  FROM accounts INNER JOIN solution_applications ON (accounts.options->>'location_id')::int = solution_applications.solution_location_id INNER JOIN users ON solution_applications.user_id=users.id INNER JOIN extras ON users.id = extras.extrable_id", engine)
+        filtered_accounts_applications_users = accounts_applications_users[accounts_applications_users['parent_account_id']==fund_account_number]
+
+        #Split extra items into Seperate Columns
+        split_extra_data = filtered_accounts_applications_users['extras'].apply(pd.Series)
+        applicant_table=pd.concat([filtered_accounts_applications_users.drop(['extras'], axis=1), split_extra_data], axis=1)
+
+        #Calculate the number days left
+        applicant_table['days_elapsed']=date.today()-applicant_table['created_at']
+        applicant_table['time_left']= pd.Timedelta('30 days')-applicant_table['days_elapsed']
+        applicant_table.loc[applicant_table['time_left'] < pd.Timedelta('0 days'), 'time_left'] = '0 Days'
+
+        #Attach solution name
+        solutions = pd.read_sql('SELECT id, name FROM solutions', engine)
+        applicant_table_solution=applicant_table.merge(solutions, left_on='solution_id', right_on='id')
+
+        #Calculate last active time in days
+        applicant_table_solution['last_request_at'] = pd.to_datetime(applicant_table_solution['last_request_at'])
+        applicant_table_solution['last_active']=(date.today()-applicant_table_solution['last_request_at']).astype('timedelta64[D]')
+
+        #Create new column for called = Called
+        applicant_table_solution.loc[applicant_table_solution['received_starter_call_at'].notnull(), 'called'] = 'Called'
+        applicant_table_solution.loc[applicant_table_solution['called'].isnull(), 'called'] = 'No'
+
+        #Create new column for wants pack
+        applicant_table_solution.loc[applicant_table_solution['receive_starter_pack']==True, 'wants_pack'] = 'Wants Pack'
+        applicant_table_solution.loc[applicant_table_solution['receive_starter_pack']==False, 'wants_pack'] = 'No'
+
+        #Create new column for pack delivered
+        applicant_table_solution.loc[applicant_table_solution['starter_pack_sent_at'].notnull(), 'pack_delivered'] = 'Delivered'
+        applicant_table_solution.loc[applicant_table_solution['starter_pack_sent_at'].isnull(), 'pack_delivered'] = 'No'
+
+        #Organise columns in final table
+        final_table_df=applicant_table_solution[['first_name','last_name','name','state','time_left','last_active','called','wants_pack','pack_delivered','session_count','opens','sends']]
+
+        final_table=df_to_table(final_table_df)
+        return final_table
 
 
 
