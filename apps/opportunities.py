@@ -4,6 +4,7 @@ import dash
 from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table
 import plotly.plotly as py
 from plotly import graph_objs as go
 import plotly.graph_objs as go
@@ -30,7 +31,9 @@ mapbox_access_token = 'pk.eyJ1IjoibmlhbGxjaGFuZ2V4IiwiYSI6ImNqbHFyc2FjaTJjYXUza3
 
 
 
+## FIXED VARIABLES ###
 
+budget_total= 30000
 
 ##=======1.0 CONNECT TO DATABASES===========
 
@@ -90,6 +93,7 @@ def project_costs_chart(fund_account_value, total_ad_spend, total_active):
 #2 Project Wheel Chart
 
 def wheel_chart(fund_name):
+
     base_chart = {
         "values": [30000, 6000, 6000, 6000, 6000, 6000],
         "labels": ["-", "€6,000", "€12,000", "€18,000", "€24,000", "€30,000"],
@@ -125,7 +129,7 @@ def wheel_chart(fund_name):
         "marker": {
             'colors': [
                 'rgb(255, 255, 255)',
-                'rgb(225,242,223)',
+                'rgb(224,18,115)',
                 'rgb(191,227,187)',
                 'rgb(156,212,150)',
                 'rgb(122,198,114)',
@@ -148,7 +152,7 @@ def wheel_chart(fund_name):
     r = 0.15
     my_raw_value=80
     # Map my_raw_value to degrees. my_raw_value is between 0 and 300
-    theta = (30000 - 15000) * 180 / 30000
+    theta = (30000 - 8709) * 180 / 30000
     # and then into radians
     theta = theta * math.pi / 180
     x = h + r*math.cos(theta)
@@ -195,7 +199,126 @@ def wheel_chart(fund_name):
                 'yref': 'paper',
                 'x': 0.23,
                 'y': 0.45,
-                'text': '50',
+                'text': '',
+                'showarrow': False
+            }
+        ]
+    }
+    # we don't want the boundary now
+    base_chart['marker']['line']['width'] = 0
+    return dict(data=[base_chart, meter_chart], layout=layout)
+
+
+
+#2 Progress Wheel Chart
+
+def progress_wheel_chart(fund_name):
+    base_chart = {
+        "values": [65, 13, 13, 13, 13, 13],
+        "labels": ["-", "13", "26", "39", "52", "65"],
+        "domain": {"x": [0, .48]},
+        "marker": {
+            "colors": [
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)',
+                'rgb(255, 255, 255)'
+            ],
+            "line": {
+                "width": 1
+            }
+        },
+        "name": "Gauge",
+        "hole": .4,
+        "type": "pie",
+        "direction": "clockwise",
+        "rotation": 108,
+        "showlegend": False,
+        "hoverinfo": "none",
+        "textinfo": "label",
+        "textposition": "outside"
+    }
+
+    meter_chart = {
+        "values": [65, 13, 13, 13, 13, 13],
+        "labels": ["-", "20%", "40%", "60%", "80%", "Nearly There!"],
+        "marker": {
+            'colors': [
+                'rgb(255, 255, 255)',
+                'rgb(225,242,223)',
+                'rgb(191,227,187)',
+                'rgb(156,212,150)',
+                'rgb(122,198,114)',
+                'rgb(88,183,78)'
+            ]
+        },
+        "domain": {"x": [0, 0.48]},
+        "name": "Gauge",
+        "hole": .3,
+        "type": "pie",
+        "direction": "clockwise",
+        "rotation": 90,
+        "showlegend": False,
+        "textinfo": "label",
+        "textposition": "inside",
+        "hoverinfo": "none"
+    }
+    h = 0.24
+    k = 0.5
+    r = 0.15
+    my_raw_value=80
+    # Map my_raw_value to degrees. my_raw_value is between 0 and 300
+    theta = (65 - 11) * 180 / 65
+    # and then into radians
+    theta = theta * math.pi / 180
+    x = h + r*math.cos(theta)
+    y = k + r*math.sin(theta)
+    path_new = 'M 0.235 0.5 L ' + str(x) + ' ' + str(y) + ' L 0.245 0.5 Z'
+
+
+    layout = {
+        'autosize': True,
+        #'width': 208,
+        #'height': 130.6,
+        'margin': {
+            'l': 150,
+            'r':15,
+            'b':0,
+            't':15,
+            'pad':4
+        },
+        'xaxis': {
+            'showticklabels': False,
+            'showgrid': False,
+            'zeroline': False,
+        },
+        'yaxis': {
+            'showticklabels': False,
+            'showgrid': False,
+            'zeroline': False,
+        },
+        'shapes': [
+            {
+                'type': 'path',
+                'path': path_new,
+                'fillcolor': 'rgb(224,18,115)',
+                'line': {
+                    'width': 0.5
+                },
+                'xref': 'paper',
+                'yref': 'paper'
+            }
+        ],
+        'annotations': [
+            {
+                'xref': 'paper',
+                'yref': 'paper',
+                'x': 0.23,
+                'y': 0.45,
+                'text': '',
                 'showarrow': False
             }
         ]
@@ -467,7 +590,7 @@ layout = [
 
             html.Div(
                 [
-                    html.P("Project Progress"),
+                    html.P("Progress(#Active Projects)"),
                     dcc.Graph(
                         id="progress_wheel_chart_id",
                         style={
@@ -612,7 +735,7 @@ html.Div(
             html.Div(
                 [
                     html.P(
-                        "Top Lost opportunities",
+                        "Groups By Stage",
                         style={
                             "color": "#2a3f5f",
                             "fontSize": "13px",
@@ -621,7 +744,7 @@ html.Div(
                         },
                     ),
                     html.Div(
-                        id="top_lost_opportunities",
+                        id="groups_per_state",
                         style={"padding": "0px 13px 5px 13px", "marginBottom": "5"},
                     )
                 ],
@@ -953,7 +1076,7 @@ def budget_wheel_callback(fund_name):
     [Input("fund_slug_dropdown", "value")],
 )
 def progress_wheel_callback(fund_name):
-    return wheel_chart(fund_name)
+    return progress_wheel_chart(fund_name)
 
 
 
@@ -1013,12 +1136,44 @@ def project_costs_callback(fund_account_value, total_ad_spend, total_active):
 
 @app.callback(
     Output("idea_demand_id", "children"),
-    [Input("fund_slug_dropdown", "value")],
+    [Input("fund_slug_dropdown", "value"),
+    Input('memory_output', 'data')],
 )
-def idea_demand_table_callback(fund_namee):
-    table=fund_namee
-    return table
+def idea_demand_table_callback(fund_namee, data):
+    unjasoned_filtered_accounts_applications=json.loads(data)
+    filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
 
+    filtered_accounts_paid = filtered_accounts_applications_df[filtered_accounts_applications_df['state']=='paid']
+    count_filtered_accounts=filtered_accounts_paid['solution_id'].value_counts()
+    count_filtered_accounts_df=count_filtered_accounts.to_frame(name='active_groups')
+
+
+    campaign_spend = pd.read_sql_query('SELECT campaigns.name, insights.spend FROM facebook_ads.insights INNER JOIN facebook_ads.ads ON insights.ad_id = ads.id INNER JOIN facebook_ads.ad_sets ON ads.adset_id = ad_sets.id INNER JOIN facebook_ads.campaigns ON ad_sets.campaign_id = campaigns.id WHERE campaigns.name LIKE %s' , facebook_engine,params=("%MN Fund%",))
+    idea_mapping = {'Cycling Without Age (MN Fund)':71,'GIY (Bluecross MN Fund #2)':78,'GIY MN Fund': 78, 'Kaboom (MN Fund)':10, "Men's Shed (MN Fund)": 48,'Poetry in Park (Bluecross MN Fund #2)':61,'Poetry in Park (MN Fund)': 61,'Repair Cafe (Bluecross MN Fund #2)':73,'Repair Café (MN Fund)':73,'Street Feast Bluecross (MN Fund #2)':65,'StreetFeast  (MN Fund)': 65}
+    campaign_spend['name']=campaign_spend['name'].map(idea_mapping)
+    total_spend_per_idea=campaign_spend.groupby('name').sum()
+    solutions = pd.read_sql('SELECT id, name FROM solutions', engine)
+    total_spend_per_idea_name=total_spend_per_idea.merge(solutions, left_index=True, right_on='id')
+
+    spend_per_active=total_spend_per_idea_name.merge(count_filtered_accounts_df, left_on='id', right_index=True)
+    spend_per_active['cost_per_active']=spend_per_active['spend']/spend_per_active['active_groups']
+
+    aquisition_source_idea=filtered_accounts_applications_df[['state','utm_source','solution_id']]
+    Facebook_Mapping = {'':'Organic','intercom': 'Intercom','FacebookPaid_GIY': 'FacebookAds','FacebookPaid_IdeaFund': 'FacebookAds', 'FacebookPaid_Poetry': 'FacebookAds','FacebookPaid_MNFund': 'FacebookAds','FacebookPaid_WelcomingWeek': 'FacebookAds','FacebookPaid_StreetFeast': 'FacebookAds','FacebookPaid_Kaboom': 'FacebookAds','FacebookPaid_MensShed': 'FacebookAds'}
+    mapped_aquisition_source_idea=aquisition_source_idea['utm_source'].map(Facebook_Mapping)
+    mapped_aquisition_source_active_idea=pd.concat([aquisition_source_idea.drop(['utm_source'], axis=1), mapped_aquisition_source_idea], axis=1)
+    fb_approved_per_idea=mapped_aquisition_source_active_idea[mapped_aquisition_source_active_idea['utm_source']=='FacebookAds']
+    approved_per_idea=fb_approved_per_idea['solution_id'].value_counts()
+    approved_per_idea_df=approved_per_idea.to_frame(name='approved')
+
+    total_spend_approved_active=spend_per_active.merge(approved_per_idea_df, left_on='id', right_index=True)
+    total_spend_approved_active['cost_per_approved']=total_spend_approved_active['spend'] / total_spend_approved_active['approved']
+    total_spend_approved_active['Failed Multiplier']=total_spend_approved_active['cost_per_active'] / total_spend_approved_active['cost_per_approved']
+    ad_performance_table=total_spend_approved_active[['name','spend','cost_per_approved','cost_per_active','Failed Multiplier']]
+    cols = ['spend','cost_per_approved','cost_per_active','Failed Multiplier']
+    ad_performance_table[cols]=ad_performance_table[cols].applymap(np.int64)
+
+    return df_to_table(ad_performance_table)
 
 
 
@@ -1030,9 +1185,39 @@ def idea_demand_table_callback(fund_namee):
     [Input("fund_slug_dropdown", "value")],
 )
 def idea_starters_table_callback(fund_namee):
-    idea_starters=fund_namee
-    return idea_starters
+    solution_name_ids = pd.read_sql('SELECT id, name FROM solutions', engine)
+    filtered_accounts = account_options[account_options['parent_account_id']==fund_namee]
+    filtered_accounts_paid = filtered_accounts[filtered_accounts['state']=='paid']
+    count_filtered_accounts=filtered_accounts_paid['solution_id'].value_counts()
+    count_filtered_accounts_df=count_filtered_accounts.to_frame(name='#Active')
 
+    filtered_accounts_allocated = filtered_accounts[filtered_accounts['state']!= 'paid']
+    count_filtered_accounts_allocated=filtered_accounts_allocated['solution_id'].value_counts()
+    count_filtered_accounts_allocated_df=count_filtered_accounts_allocated.to_frame(name='#Allocated')
+
+    merged_active_names=count_filtered_accounts_df.merge(solution_name_ids, left_index=True, right_on='id')
+    merged_active_approved=merged_active_names.merge(count_filtered_accounts_allocated_df, left_on='id', right_index=True)
+    active_ideas=merged_active_approved[['name','#Allocated','#Active']]
+
+    active_ideas_table=df_to_table(active_ideas)
+    return active_ideas_table
+
+
+
+# updates starter applicant table based on 'State' df updates
+@app.callback(
+    Output("groups_per_state", "children"),
+    [Input("fund_slug_dropdown", "value")],
+)
+def group_stages_callback(fund_account_number):
+        filtered_accounts = account_options[account_options['parent_account_id']==fund_account_number]
+        state_count=filtered_accounts['state'].value_counts()
+        state_count_df=state_count.to_frame(name='#Groups')
+        state_count_df.reset_index(level=0, inplace=True)
+        state_count_df.columns =['State','#Groups']
+
+        state_count_table=df_to_table(state_count_df)
+        return state_count_table
 
 
 
@@ -1045,6 +1230,7 @@ def idea_starters_table_callback(fund_namee):
 def table_state_callback(state, fund_account_number):
         table_state=fund_account_number
         return table_state
+
 
 
 # Callback to read in accounts_applications_users and store in new store dash_core_component
