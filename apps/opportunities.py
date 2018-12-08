@@ -817,8 +817,8 @@ html.Div(
                     html.P(
                         "Fund Applicants",
                         style={
-                            "color": "#2a3f5f",
-                            "fontSize": "13px",
+                            "color": "#ffffff",
+                            "fontSize": "15px",
                             "textAlign": "center",
                             "marginBottom": "0",
                         },
@@ -831,7 +831,7 @@ html.Div(
                 ],
                 className="row",
                 style={
-                    "backgroundColor": 'rgb(88,183,78)',
+                    "backgroundColor": '#808080',
                     "border": "1px solid #C8D4E3",
                     "borderRadius": "3px",
                     "height": "100%",
@@ -1305,32 +1305,100 @@ def table_state_callback(fund_account_number):
         applicant_table_solution.loc[applicant_table_solution['starter_pack_sent_at'].notnull(), 'pack_delivered'] = 'Delivered'
         applicant_table_solution.loc[applicant_table_solution['starter_pack_sent_at'].isnull(), 'pack_delivered'] = 'No'
 
-        #Organise columns in final table
-        final_table_df=applicant_table_solution[['first_name','last_name','name','state','time_left','last_active','called','wants_pack','pack_delivered','session_count','opens','sends']]
+        #Create new column for #StepsComplete
+        list_of_locations=applicant_table_solution['solution_location_id'].tolist()
+        onboarding_steps = pd.read_sql('SELECT id, solution_id, step_type FROM onboarding_steps', engine)
+        completed_onboarding_steps = pd.read_sql('SELECT * FROM completed_onboarding_steps', engine)
+        merged_onboarding_steps=completed_onboarding_steps.merge(onboarding_steps, left_on='onboarding_step_id', right_on='id')
+        applications_steps=merged_onboarding_steps[merged_onboarding_steps['location_id'].isin(list_of_locations)]
+        count_steps_complete=applications_steps['location_id'].value_counts()
+        count_steps_complete_frame=count_steps_complete.to_frame(name='steps_complete')
+        applicant_table_solution_steps=applicant_table_solution.merge(count_steps_complete_frame, left_on='solution_location_id', right_index=True)
 
-        #final_table=df_to_table(final_table_df)
+        #Create new column for #Number Joiners
+        user_location_roles = pd.read_sql('SELECT location_id FROM user_location_roles', engine)
+        count_joiners=user_location_roles['location_id'].value_counts()
+        count_joiners_frame=count_joiners.to_frame(name='team_size')
+        applicant_table_team=applicant_table_solution_steps.merge(count_joiners_frame, left_on='solution_location_id', right_index=True)
+
+        #Create new column for waiting for pack
+        applicant_table_team['waiting_on_pack'] = 'No'
+        applicant_table_team.loc[(applicant_table_team.wants_pack == 'Wants Pack') & (applicant_table_team.pack_delivered != 'Delivered') , 'waiting_on_pack'] = 'Waiting'
+
+        #Create new column for Lead Score (Steps,Session, Email, Team)
+        applicant_table_team['step_points']= applicant_table_team['steps_complete']*2
+        applicant_table_team['session_count']=pd.to_numeric(applicant_table_team['session_count'])
+        applicant_table_team['session_points'] = 0
+
+        applicant_table_team.loc[applicant_table_team.session_count > 2, 'session_points'] = 1
+        applicant_table_team['team_size_points']= applicant_table_team['team_size'] - 1
+
+        applicant_table_team['opens']=pd.to_numeric(applicant_table_team['opens'])
+        applicant_table_team['email_points']=0
+        applicant_table_team.loc[applicant_table_team.opens > 1, 'email_points'] = 1
+
+        applicant_table_team['clicks']=pd.to_numeric(applicant_table_team['clicks'])
+        applicant_table_team['click_points']=0
+        applicant_table_team.loc[applicant_table_team.clicks > 1, 'email_points'] = 1
+
+        applicant_table_team['total_score']= applicant_table_team['step_points'] + applicant_table_team['session_points'] + applicant_table_team['team_size_points']+ applicant_table_team['email_points'] + applicant_table_team['click_points']
+
+        #Organise columns in final table
+        final_table_df=applicant_table_team[['first_name','last_name','name','state','steps_complete','team_size','time_left','last_active','called','waiting_on_pack','session_count','opens','clicks','total_score']]
+        final_table_df=final_table_df[final_table_df['state'] != 'rejected']
+        final_table_sorted=final_table_df.sort_values('total_score', ascending=False)
 
 
         final_table=dash_table.DataTable(
             id='final_table',
-            columns=[{"name": i, "id": i} for i in final_table_df.columns],
-            data=final_table_df.to_dict('rows'),
-            n_fixed_rows=1,
+            columns=[{"name": i, "id": i} for i in final_table_sorted.columns],
+            data=final_table_sorted.to_dict('rows'),
+            #n_fixed_rows=1,
             style_cell={'textAlign': 'left'},
             style_cell_conditional=[
                 {'if': {'row_index': 'odd'},
                 'backgroundColor': 'rgb(248, 248, 248)'}],
             style_header={
                 'backgroundColor': 'white',
-                'fontWeight': 'bold'},
-            editable=True,
+                'fontWeight': 'bold',
+                'fontSize': '13px'},
+            #editable=True,
             filtering=True,
             sorting=True,
             sorting_type="multi",
             row_selectable="multi",
             row_deletable=True,
             selected_rows=[],
-            ),
+            style_table={'overflowX': 'scroll'},
+            style_data_conditional=[{
+            'if': {
+                'column_id': 'total_score',
+                'filter': 'total_score < num(4.0)'
+                },
+                'backgroundColor': 'rgb(224, 18, 115)',
+                'color': 'white',
+                },
+
+                {
+            'if': {
+                'column_id': 'total_score',
+                'filter': 'total_score > num(3.0)'
+                },
+                'backgroundColor': '#78CBC4',
+                'color': 'white',
+                },
+                {
+                'if': {
+                    'column_id': 'total_score',
+                    'filter': 'total_score > num(7.0)'
+                    },
+                    'backgroundColor': '#58B74E',
+                    'color': 'white',
+                    },
+
+                ]
+
+                ),
         return final_table
 
 
