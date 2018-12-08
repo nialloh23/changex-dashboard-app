@@ -394,7 +394,6 @@ def acquisition_chart(unjasoned_data):
 def map_chart(filtered_accounts_applications):
     unjasoned_data=json.loads(filtered_accounts_applications)
     filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_data)
-    print(filtered_accounts_applications_df)
     site_lat = filtered_accounts_applications_df.latitude
     site_lon = filtered_accounts_applications_df.longitude
     locations_name = filtered_accounts_applications_df.location_name
@@ -453,22 +452,42 @@ def map_chart(filtered_accounts_applications):
 
 
 
-def active_funnel_chart(applications_steps):
-    temp_application_steps = applications_steps["step_type"].value_counts()
+def active_funnel_chart(temp_application_steps_labels,my_series_percentage_activation,target_replications):
 
     trace1 = go.Bar(
-        x = temp_application_steps.index,
-        y = temp_application_steps.values,
+        x = temp_application_steps_labels.index,
+        y = temp_application_steps_labels.values,
+        name='Fund Starters',
+        text= my_series_percentage_activation.values,
+        textposition = 'auto',
         marker=dict(
-                color='rgb(88,183,78)',
-                ),
-        name='Fund Starters'
-    )
+            color='rgb(88,183,78)',
+        ),
+        )
+
+
+    trace2 = go.Scatter(
+        x=['Paid'],
+        y=[target_replications+3],
+        text=['Target Paid:{0}'.format(target_replications)],
+        mode='text',
+        )
+
+    trace3 = go.Scatter(
+        x=['Allocated','Video', 'Team', 'Event', 'Photo', 'Paid', '-'],
+        y=[target_replications,target_replications, target_replications, target_replications, target_replications, target_replications, target_replications, target_replications],
+        mode = 'lines',
+        marker=dict(
+            color='rgb(224, 18, 115)',
+        ),
+        )
+
     plot_layout = go.Layout(
         autosize=True,
         #width=450,
         #height=250,
         barmode='stack',
+        showlegend=False,
         margin=go.layout.Margin(
             l=40,
             r=40,
@@ -477,7 +496,7 @@ def active_funnel_chart(applications_steps):
             pad=4
             )
         )
-    return go.Figure(data=[trace1], layout=plot_layout)
+    return go.Figure(data=[trace1, trace2, trace3], layout=plot_layout)
 
 
 
@@ -722,7 +741,7 @@ html.Div(
                     "backgroundColor": "white",
                     "border": "1px solid #C8D4E3",
                     "borderRadius": "3px",
-                    "height": "100%",
+                    "height": "340px",
                     "overflowY": "scroll",
                 },
             ),
@@ -747,7 +766,7 @@ html.Div(
                     "backgroundColor": "white",
                     "border": "1px solid #C8D4E3",
                     "borderRadius": "3px",
-                    "height": "100%",
+                    "height": "340px",
                     "overflowY": "scroll",
                 },
             ),
@@ -773,7 +792,7 @@ html.Div(
                     "backgroundColor": "white",
                     "border": "1px solid #C8D4E3",
                     "borderRadius": "3px",
-                    "height": "100%",
+                    "height": "340px",
                     "overflowY": "scroll",
                 },
             ),
@@ -1088,9 +1107,11 @@ def map_callback(filtered_accounts_applications):
 # update active starter funnel based on fund selected in dropdown
 @app.callback(
     Output("active_funnel", "figure"),
-    [Input('memory_output', 'data')],
+    [Input('memory_output', 'data'),
+    Input("number_active_id", "children"),
+    Input("fund_name_dropdown", "value")],
 )
-def funnel_callback(filtered_accounts_applications):
+def funnel_callback(filtered_accounts_applications, number_active_groups, fund_name_slug):
     unjasoned_filtered_accounts_applications=json.loads(filtered_accounts_applications)
     filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_filtered_accounts_applications)
     list_of_locations=filtered_accounts_applications_df['solution_location_id'].tolist()
@@ -1101,7 +1122,32 @@ def funnel_callback(filtered_accounts_applications):
 
     applications_steps=merged_onboarding_steps[merged_onboarding_steps['location_id'].isin(list_of_locations)]
 
-    return active_funnel_chart(applications_steps)
+    step_mapping = {0:'Video', 1: 'Pack', 2: 'Team', 3: 'Event', 4: 'Photo'}
+    applications_steps['step_label']=applications_steps['step_type'].map(step_mapping)
+    total_number_allocated=filtered_accounts_applications_df.shape[0]
+
+    temp_application_steps = applications_steps["step_label"].value_counts()
+    number_active_groups_float=float(number_active_groups)
+    number_active = pd.Series([number_active_groups_float], index=['Paid'])
+    number_allocated= pd.Series([total_number_allocated], index=['Allocated'])
+    temp_application_steps=temp_application_steps.add(number_active, fill_value=0)
+    temp_application_steps=temp_application_steps.add(number_allocated, fill_value=0)
+
+    temp_application_steps_labels= temp_application_steps.reindex(index = ['Allocated','Video','Team','Event','Photo','Paid'])
+    bar_chart_decimal=temp_application_steps_labels.values/total_number_allocated
+    percentage_activation=pd.DataFrame(bar_chart_decimal).applymap(lambda x: '{:.0%}'.format(x)).values
+    my_list_percentage_activation = map(lambda x: x[0], percentage_activation)
+    my_series_percentage_activation= pd.Series(my_list_percentage_activation)
+
+    #Import User Orders Tables: Find Target Replications Count
+    user_order = pd.read_sql('SELECT slug, options, replications FROM user_orders', engine)
+    split_user_options = user_order['options'].apply(pd.Series)
+    user_order_options=pd.concat([user_order.drop(['options'], axis=1), split_user_options], axis=1)
+    fund_row=user_order_options.loc[user_order_options['slug'] == fund_name_slug]
+    row_index=fund_row.index
+    target_replications=user_order_options.loc[row_index]['replications'].iloc[0]
+
+    return active_funnel_chart(temp_application_steps_labels,my_series_percentage_activation,target_replications)
 
 
 # update acquisition figure based on fund selected in dropdown
@@ -1167,6 +1213,7 @@ def idea_demand_table_callback(fund_namee, data):
     ad_performance_table=total_spend_approved_active[['name','spend','cost_per_approved','cost_per_active','Failed Multiplier']]
     cols = ['spend','cost_per_approved','cost_per_active','Failed Multiplier']
     ad_performance_table[cols]=ad_performance_table[cols].applymap(np.int64)
+    ad_performance_table=ad_performance_table.sort_values('cost_per_approved')
 
     return df_to_table(ad_performance_table)
 
@@ -1193,8 +1240,9 @@ def idea_starters_table_callback(fund_namee):
     merged_active_names=count_filtered_accounts_df.merge(solution_name_ids, left_index=True, right_on='id')
     merged_active_approved=merged_active_names.merge(count_filtered_accounts_allocated_df, left_on='id', right_index=True)
     active_ideas=merged_active_approved[['name','#Allocated','#Active']]
+    sorted_active_ideas= active_ideas.sort_values('#Allocated',ascending=False)
 
-    active_ideas_table=df_to_table(active_ideas)
+    active_ideas_table=df_to_table(sorted_active_ideas)
     return active_ideas_table
 
 
@@ -1210,8 +1258,9 @@ def group_stages_callback(fund_account_number):
         state_count_df=state_count.to_frame(name='#Groups')
         state_count_df.reset_index(level=0, inplace=True)
         state_count_df.columns =['State','#Groups']
+        sorted_state_count= state_count_df.sort_values('#Groups')
 
-        state_count_table=df_to_table(state_count_df)
+        state_count_table=df_to_table(sorted_state_count)
         return state_count_table
 
 
