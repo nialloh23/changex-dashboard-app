@@ -5,6 +5,7 @@ import flask
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table
 import dateutil.parser
 from money import Money
 
@@ -37,6 +38,10 @@ def df_to_table(df):
             for i in range(len(df))
         ]
     )
+
+
+
+
 
 
 #returns most significant part of a number

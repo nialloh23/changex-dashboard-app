@@ -394,17 +394,30 @@ def acquisition_chart(unjasoned_data):
 def map_chart(filtered_accounts_applications):
     unjasoned_data=json.loads(filtered_accounts_applications)
     filtered_accounts_applications_df=pd.DataFrame.from_dict(unjasoned_data)
+    print(filtered_accounts_applications_df)
     site_lat = filtered_accounts_applications_df.latitude
     site_lon = filtered_accounts_applications_df.longitude
     locations_name = filtered_accounts_applications_df.location_name
+    state=filtered_accounts_applications_df.state
+
+    state=np.array(state)
+
+    color=np.array(['rgb(255,255,255)']*state.shape[0])
+    color[state =='paid']='rgb(88,183,78)'
+    color[state !='paid']='rgb(224,18,115)'
+
+    size=np.array([9]*state.shape[0])
+    size[state =='paid']=18
+    size[state !='paid']=9
+
     map_data = [
     go.Scattermapbox(
         lat=site_lat,
         lon=site_lon,
         mode='markers',
         marker=dict(
-            size=9,
-            color='rgb(224, 18, 115)',
+            size=size.tolist(),
+            color=color.tolist(),
             opacity=0.7
         ),
         text=locations_name,
@@ -495,26 +508,7 @@ layout = [
                 className="two columns",
             ),
 
-            html.Div(
-                dcc.Dropdown(
-                    id="state_dropdown",
-                    options=[
-                        {"label": "Allocated", "value": "allocated"},
-                        {"label": "Rejected", "value": "rejected"},
-                        {"label": "Failed", "value": "failed"},
-                        {"label": "Succeeded", "value": "succeeded"},
-                        {"label": "Paid", "value": "paid"},
-                        {"label": "Active", "value": "active"},
-                        {"label": "All", "value": "all"},
 
-
-
-                    ],
-                    value="all",
-                    clearable=False,
-                ),
-                className="two columns",
-            ),
             html.Div(
                 dcc.Dropdown(
                     id="fund_name_dropdown",
@@ -818,7 +812,7 @@ html.Div(
                 ],
                 className="row",
                 style={
-                    "backgroundColor": "white",
+                    "backgroundColor": 'rgb(88,183,78)',
                     "border": "1px solid #C8D4E3",
                     "borderRadius": "3px",
                     "height": "100%",
@@ -831,9 +825,10 @@ html.Div(
         ],
         className="row",
         style={"marginTop": "5px", "max height": "200px"},
+
     ),
 
-
+    html.Div(id='datatable-interactivity-container')
 
 ]
 
@@ -1264,8 +1259,42 @@ def table_state_callback(fund_account_number):
         #Organise columns in final table
         final_table_df=applicant_table_solution[['first_name','last_name','name','state','time_left','last_active','called','wants_pack','pack_delivered','session_count','opens','sends']]
 
-        final_table=df_to_table(final_table_df)
+        #final_table=df_to_table(final_table_df)
+
+
+        final_table=dash_table.DataTable(
+            id='final_table',
+            columns=[{"name": i, "id": i} for i in final_table_df.columns],
+            data=final_table_df.to_dict('rows'),
+            n_fixed_rows=1,
+            style_cell={'textAlign': 'left'},
+            style_cell_conditional=[
+                {'if': {'row_index': 'odd'},
+                'backgroundColor': 'rgb(248, 248, 248)'}],
+            style_header={
+                'backgroundColor': 'white',
+                'fontWeight': 'bold'},
+            editable=True,
+            filtering=True,
+            sorting=True,
+            sorting_type="multi",
+            row_selectable="multi",
+            row_deletable=True,
+            selected_rows=[],
+            ),
         return final_table
+
+
+
+#Callback to update filtering and sorting with DataTable
+
+@app.callback(
+    Output('datatable-interactivity-container', "children"),
+    [Input('final_table', "data_timestamp"),
+    Input('final_table', "derived_virtual_data"),
+    Input('final_table', "derived_virtual_selected_rows")])
+def dummy_update_table(date, rows, derived_virtual_selected_rows):
+    return None
 
 
 
